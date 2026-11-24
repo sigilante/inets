@@ -171,7 +171,8 @@ def test_a_duplicator_that_lost_both_copies_leaves_an_eraser():
 def test_unfold_handles_a_deep_term():
     deep = ski.parse("`K" * 5000 + "I")
     main, definitions = ski.name_subterms(deep, any_term=True)
-    assert ski.unfold(main, definitions) == deep
+    # Compared as text: `==` on tuples this deep recurses past Python 3.10's limit.
+    assert ski.show(ski.unfold(main, definitions)) == ski.show(deep)
     main, definitions = ski.name_subterms(ski.parse("`K" * 500 + "I"))
     assert ski.run(main, schedule="rounds", definitions=definitions).result.finished
 

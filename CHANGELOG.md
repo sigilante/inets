@@ -1,5 +1,11 @@
 # Changes
 
+## Unreleased
+
+- A test of `unfold` on a deep term compared 5,000-deep tuples with `==`, which
+  recurses past Python 3.10's limit; it compares their prefix forms. The 0.1.3 source
+  archive's tests show that one failure on Python 3.10; the code is not affected.
+
 ## 0.1.3
 
 Changes to the interface, made before 1.0:
