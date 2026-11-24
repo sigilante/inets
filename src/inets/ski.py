@@ -142,8 +142,11 @@ def encode(net, term, direct=False):
             out = [None]
             work.append((head, out, 0))
         for x in args[take:]:
-            inert = isinstance(head, int) or lazy
-            n = net.add_node("stuck" if isinstance(head, int) else "ap" if lazy else "app")
+            # An atom's arguments: with `direct`, the stuck application they make; without
+            # it, applications that will make it.
+            held = direct and isinstance(head, int)
+            inert = held or lazy
+            n = net.add_node("stuck" if held else "ap" if lazy else "app")
             ports = [out, None]
             pending.append((n, 1 if inert else 0, ports))
             work.append((x, ports, 1))
@@ -354,7 +357,8 @@ def run(term, schedule="need", definitions=None, direct=False, deep=True, sweep_
     (:func:`name_subterms`). With ``direct`` a combinator short of arguments is built as
     the value it is. ``deep`` and ``sweep_above`` are for reduction by need
     (:meth:`inets.Net.reduce_by_need`): with ``deep`` false it stops when the head is a
-    value.
+    value. By need, each sweep removes a duplicator that has lost one of its copies
+    (``collapse`` in :meth:`inets.Net.sweep`).
     """
     if schedule not in ("need", "rounds", "lazy"):
         raise TermError('schedule is "need", "rounds" or "lazy"')
@@ -376,7 +380,7 @@ def run(term, schedule="need", definitions=None, direct=False, deep=True, sweep_
     else:
         net.wire(root, out)
     if schedule == "need":
-        result = net.reduce_by_need(root, deep, sweep_above, max_interactions)
+        result = net.reduce_by_need(root, deep, sweep_above, max_interactions, collapse=("dup",))
     else:
         result = net.reduce_in_rounds(max_interactions)
     return Run(net, result, read_back(net, root, definitions) if result.finished else None, root)

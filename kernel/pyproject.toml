@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "inets-kernel"
-version = "0.1.1"
+version = "0.1.2"
 description = "A Jupyter kernel for interaction nets: write a table of rules, draw a net, and watch it reduce"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -18,7 +18,7 @@ classifiers = [
     "Intended Audience :: Education",
     "Programming Language :: Python :: 3",
 ]
-dependencies = ["inets>=0.1.1", "ipykernel>=6", "jupyter_client>=7"]
+dependencies = ["inets>=0.1.2", "ipykernel>=6", "jupyter_client>=7"]
 
 [project.optional-dependencies]
 test = ["pytest", "nbclient", "nbformat"]

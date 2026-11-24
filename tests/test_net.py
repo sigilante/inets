@@ -120,9 +120,9 @@ def test_sweeping_after_every_interaction_really_does():
     class Counting(inets.Net):
         swept = 0
 
-        def sweep(self, roots):
+        def sweep(self, roots, collapse=()):
             self.swept += 1
-            super().sweep(roots)
+            super().sweep(roots, collapse)
 
     net = Counting(inets.bundled("ski"))
     root = net.free()

@@ -1,5 +1,15 @@
 # Changes
 
+## 0.1.2
+
+- `Net.sweep` and `Net.reduce_by_need` take `collapse`, the names of agents that are
+  duplicators: in a sweep, a duplicator that has lost one copy is removed and its input
+  joined to the other. `inets.ski.run` collapses `dup` by need. Copies fall; contractions
+  and answers do not change.
+- `inets.ski.encode` built an atom's arguments as a stuck application even without
+  `direct`, so `collect` counted one fewer than the docstring implies. They are now built
+  as applications unless `direct` is given. No contraction count changes.
+
 ## 0.1.1
 
 - `inets`: reduction by need no longer runs without end on a net built against its table's

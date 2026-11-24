@@ -351,7 +351,7 @@ class Net:
     def _is_value(self, n):
         return self.kind[n] != _FREE and self.system.agents[self.kind[n]].is_value
 
-    def reduce_by_need(self, port, deep=True, sweep_above=20000, max_interactions=10 ** 6):
+    def reduce_by_need(self, port, deep=True, sweep_above=20000, max_interactions=10 ** 6, collapse=()):
         """Reduces only what is needed for the term whose output is joined to the input
         ``port`` (usually a free port) to be a value; with ``deep``, for that value's
         inputs to be values too, and theirs, from the first. The table must have signs.
@@ -363,7 +363,7 @@ class Net:
         wanted, so when the net passes ``sweep_above`` nodes it is swept (:meth:`sweep`),
         and again each time it reaches twice the size it was left at. 0 sweeps after every
         interaction, None never. Sweeping needs exactly one eraser in the table and is
-        skipped, silently, without one.
+        skipped, silently, without one. ``collapse`` is passed to each sweep.
 
         Raises :class:`~inets.errors.Stuck` if the value wanted depends on a free port,
         waits on itself, or lies beyond a wire that joins two inputs (a net built against
@@ -409,7 +409,7 @@ class Net:
                         return self._result("interactions", start, before)
                     self.fire(n, m.node)
                     if sweep_at is not None and len(self.kind) > sweep_at:
-                        self.sweep([port, wanted] + todo)
+                        self.sweep([port, wanted] + todo, collapse)
                         sweep_at = max(2 * len(self.kind), sweep_above) if sweep_above else 0
                         stack = [wanted]
                 elif Port(n, 0) in stack:
@@ -422,14 +422,25 @@ class Net:
                 todo.extend(Port(v, i) for i in range(len(signs) - 1, 0, -1) if signs[i] == "-")
         return self._result("wanted", start, before)
 
-    def sweep(self, roots):
+    def sweep(self, roots, collapse=()):
         """Keeps the nodes that own the ports ``roots`` (usually free ports) and every
         node that can be reached from those by following inputs, and removes the rest.
         An output of a kept node that a removed node held is given to an eraser.
         The table must have signs and exactly one eraser (an agent whose only port is an
-        input)."""
+        input).
+
+        ``collapse`` names duplicators: agents with an input for a principal port and two
+        outputs, each a copy of what the input is joined to. A kept node of one of these
+        that has lost one copy is removed instead, and its input joined to the copy that
+        is left: copying and discarding a copy leaves the term as it was. This is a
+        property of the agent, which the table cannot state, so the caller says which
+        agents have it."""
         if not self._eraser:
             raise Error("sweeping needs a table with signs and exactly one eraser")
+        for name in collapse:
+            agent = self.system.agents.get(name)
+            if agent is None or agent.signs != ("-", "+", "+"):
+                raise Error(f"only an agent with signs - + + can be collapsed, and {name!r} is not one")
         # The nodes that own the roots are kept, and everything their inputs lead to.
         live, stack = set(), [Port(*r).node for r in roots]
         while stack:
@@ -449,7 +460,22 @@ class Net:
             self._delete(n)
         for q in loose:
             self.link.pop(q, None)
-            self.wire(q, Port(self.add_node(self._eraser), 0))
+        for q in loose:
+            n = q.node
+            if self.kind.get(n) in collapse and q.index in (1, 2):
+                if self.link.get(Port(n, 3 - q.index)) is None:
+                    # Both copies lost: the duplicator itself is still held by its input's
+                    # side, so it is given an eraser in its place.
+                    source = self.link[Port(n, 0)]
+                    self._delete(n)
+                    self.link.pop(source, None)
+                    self.wire(source, Port(self.add_node(self._eraser), 0))
+                else:
+                    source, other = self.link[Port(n, 0)], self.link[Port(n, 3 - q.index)]
+                    self._delete(n)
+                    self.wire(source, other)
+            elif n in self.kind:
+                self.wire(q, Port(self.add_node(self._eraser), 0))
 
     # --- looking ----------------------------------------------------------------------
 

@@ -189,7 +189,11 @@ a long run does not fill up, it sweeps the net when it passes 20,000 nodes, and 
 time the net reaches twice the size the last sweep left (`sweep_above` sets the figure):
 `net.sweep(ports)` keeps what those ports can reach and removes the rest. Sweeping needs a
 table with exactly one eraser, an agent whose only port is an input; without one,
-`net.sweep` raises an error and reduction by need goes on unswept. `deep=False` stops
+`net.sweep` raises an error and reduction by need goes on unswept. `collapse=("dup",)`, to
+either method, names agents that are duplicators: a kept one that has lost one of its
+copies is removed and its input joined to the other copy. The table cannot say which
+agents copy, so the caller does; `inets.ski.run` does it for the `ski` table. It changes
+the number of copies, never the number of contractions. `deep=False` stops
 reduction by need as soon as the value wanted is a value, its own inputs not asked for.
 
 ## The tables that come with it
@@ -269,10 +273,9 @@ contractions as rewriting takes steps and by need in no more. With every pair fi
 The tables, the checks and the machine were worked out in
 [vine-aviary](https://github.com/sigilante/vine-aviary), which has the measurements behind
 the `ski` and `lazy` tables and the argument for why a net of agents cannot both stop when
-it should and share work. This package is that code made general. It does not yet replace
-it: vine-aviary's own machine also removes a duplicator that has lost one of its copies,
-where this one gives the lost copy to an eraser, so its counts of copies under reduction
-by need should be lower than this package's (the two have not been compared).
+it should and share work. This package is that code made general, and vine-aviary now
+uses it: its census, its programs on the IVM and SKIjack's programs give the same output
+with this package as with the code it replaced, counts included.
 
 ## Licence
 

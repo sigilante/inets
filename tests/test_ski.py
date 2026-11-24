@@ -90,3 +90,41 @@ def test_names_with_work_in_them_are_refused_for_the_ski_table():
     main, definitions = ski.name_subterms(ski.parse("```S`K``KI0``SKK1"), any_term=True)
     with pytest.raises(inets.TermError, match="not in normal form"):
         ski.run(main, schedule="need", definitions=definitions)
+
+
+def test_a_sweep_can_collapse_a_duplicator_that_lost_a_copy():
+    for collapse, dups in (((), 1), (("dup",), 0)):
+        net = inets.Net(inets.bundled("ski"))
+        root = net.free()
+        d = net.add_node("dup")
+        net.wire((d, 0), net.make("S"))
+        net.wire((d, 1), root)                       # one copy is wanted ...
+        net.wire((d, 2), net.make("era"))            # ... and the other is not
+        net.sweep([root], collapse)
+        assert sum(k == "dup" for k in net.kind.values()) == dups
+        assert ski.read_back(net, root) == "S"
+        sound(net)
+    with pytest.raises(inets.Error):
+        net.sweep([root], ("app",))                  # not a duplicator: signs - - +
+
+
+@pytest.mark.parametrize("text", ["```SII```SKK```SKK0", "``KI" + OMEGA, "```S``SKK``SKK```SII0", "````SSS`IS0",
+                                  "```SII```SII```SII0"])
+def test_collapsing_changes_copies_and_never_contractions(text):
+    runs = []
+    for collapse in ((), ("dup",)):
+        net = inets.Net(inets.bundled("ski"))
+        root = net.free()
+        net.wire(root, ski.encode(net, ski.parse(text)))
+        result = net.reduce_by_need(root, sweep_above=0, collapse=collapse)
+        runs.append((ski.read_back(net, root), result.counts.get("contract", 0), result.counts.get("copy", 0)))
+        sound(net)
+    (term, contractions, copies), (term2, contractions2, copies2) = runs
+    assert (term, contractions) == (term2, contractions2) and copies2 <= copies
+    if text in ("```SII```SKK```SKK0", "```S``SKK``SKK```SII0"):
+        assert copies2 < copies                      # where a copy was lost, it was not made
+
+
+def test_an_atoms_arguments_are_built_directly_only_with_direct():
+    assert ski.run("`01", deep=False).result.counts == {"collect": 1}
+    assert ski.run("`01", deep=False, direct=True).result.counts == {}
