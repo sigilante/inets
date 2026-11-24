@@ -7,9 +7,16 @@ It is a reference and a teaching tool. It is small, it has no dependencies, and 
 fast. What it says about a system rests on checks of the table and on tests, not on proof.
 
 ```sh
-git clone https://github.com/sigilante/inets && cd inets
-pip install -e '.[test]'     # Python 3.10 or later; not on PyPI
+pip install inets            # Python 3.10 or later
 inets demo
+```
+
+Or from source, with the tests:
+
+```sh
+git clone https://github.com/sigilante/inets && cd inets
+pip install -e '.[test]'
+pytest
 ```
 
 ## One term, three ends
@@ -236,4 +243,6 @@ it: vine-aviary's own machine also removes a duplicator that has lost one of its
 where this one gives the lost copy to an eraser, so its counts of copies under reduction
 by need should be lower than this package's (the two have not been compared).
 
-No licence has been chosen yet, so for now all rights are reserved.
+## Licence
+
+MIT. See [LICENSE](LICENSE).
