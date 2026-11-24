@@ -366,7 +366,8 @@ class Net:
         skipped, silently, without one.
 
         Raises :class:`~inets.errors.Stuck` if the value wanted depends on a free port,
-        and :class:`~inets.errors.Error` for a table without signs.
+        waits on itself, or lies beyond a wire that joins two inputs (a net built against
+        the table's signs); and :class:`~inets.errors.Error` for a table without signs.
         """
         if not self.system.signed:
             raise Error("reduction by need needs a table with signs")
@@ -381,6 +382,11 @@ class Net:
                 capped = self.interactions - start >= max_interactions
                 at = self.link[stack[-1]]
                 n = at.node
+                # What an input is joined to must be an output. A net built against the
+                # table's signs could otherwise keep the cursor going round for ever.
+                if self.kind[n] != _FREE and self.system.agents[self.kind[n]].signs[at.index] != "+":
+                    raise Stuck(f"an input is joined to an input (port {at.index} of a {self.kind[n]}): "
+                                "the net does not keep to the table's signs")
                 if self.kind[n] in self._references and len(stack) == 1:
                     if capped:
                         return self._result("interactions", start, before)
@@ -406,6 +412,8 @@ class Net:
                         self.sweep([port, wanted] + todo)
                         sweep_at = max(2 * len(self.kind), sweep_above) if sweep_above else 0
                         stack = [wanted]
+                elif Port(n, 0) in stack:
+                    raise Stuck("a vicious circle: the value wanted waits on itself")
                 else:
                     stack.append(Port(n, 0))
             if deep:

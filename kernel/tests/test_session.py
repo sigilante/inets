@@ -68,6 +68,9 @@ def test_a_table_that_cannot_be_read_changes_nothing():
     ("%system ivm", "no table ivm"),
     ("%cap many", "whole number"),
     ("%schedule need\ncon (out b) = era", "needs a table with signs"),
+    ("con (a b) =", "one side is missing"),
+    ("= era", "expected a node or a wire"),
+    ("%system lazy\n%schedule need b\nI = S2 (atom 1 stuck (y S2 (app (x b) I)))", "input is joined to an input"),
 ])
 def test_mistakes_are_reported_in_words(cell, phrase):
     out = Session().execute(cell)

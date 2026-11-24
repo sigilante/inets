@@ -138,3 +138,27 @@ def test_by_need_does_not_report_a_cap_it_did_not_need():
     exact = ski.run("```SKKI").result.interactions
     assert ski.run("```SKKI", max_interactions=exact).result.reason == "wanted"
     assert ski.run("```SKKI", max_interactions=exact - 1).result.reason == "interactions"
+
+
+def test_by_need_stops_at_a_net_built_against_the_signs():
+    """Two inputs joined, and a value that waits on itself: both are said, not looped on."""
+    s = inets.bundled("ski")
+    net = inets.Net(s)
+    out = net.free()
+    a = net.add_node("app")
+    net.wire((a, 2), out)
+    k1 = net.add_node("K1")
+    net.wire((a, 0), (k1, 1))                 # the application's input on K1's input
+    net.wire((a, 1), net.make("I"))
+    net.wire((k1, 0), net.make("era"))
+    with pytest.raises(inets.Stuck, match="input is joined to an input"):
+        net.reduce_by_need(out, max_interactions=10)
+    net = inets.Net(s)
+    out = net.free()
+    a, d = net.add_node("app"), net.add_node("dup")
+    net.wire((a, 2), (d, 0))                  # the application's result is what the duplicator copies
+    net.wire((d, 1), (a, 0))                  # and one copy is the application's own function
+    net.wire((d, 2), out)
+    net.wire((a, 1), net.make("I"))
+    with pytest.raises(inets.Stuck, match="vicious circle"):
+        net.reduce_by_need(out, max_interactions=10)

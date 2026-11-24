@@ -6,17 +6,34 @@ table, and reduce nets by it under a schedule you choose.
 It is a reference and a teaching tool. It is small, it has no dependencies, and it is not
 fast. What it says about a system rests on checks of the table and on tests, not on proof.
 
+## Install
+
+Both packages are on PyPI and need Python 3.10 or later.
+
 ```sh
-pip install inets            # Python 3.10 or later
+pip install inets            # the library and the `inets` command; no dependencies
 inets demo
 ```
 
-Or from source, with the tests:
+For notebooks, add the Jupyter kernel and tell Jupyter about it:
+
+```sh
+pip install inets-kernel                        # brings in inets and ipykernel
+python -m inets_kernel.install --sys-prefix     # into this Python environment; or --user
+jupyter lab                                     # then choose "Interaction nets"
+```
+
+The kernel's pictures need [Graphviz](https://graphviz.org/download/)'s `dot` program
+(`brew install graphviz`, `apt install graphviz`); without it a cell shows the Graphviz
+text instead. `jupyter kernelspec uninstall inets` removes the kernel again.
+
+From source, with the tests:
 
 ```sh
 git clone https://github.com/sigilante/inets && cd inets
 pip install -e '.[test]'
 pytest
+pip install -e './kernel[test]'                 # the kernel, if you want it
 ```
 
 ## One term, three ends
@@ -98,7 +115,7 @@ rule app (z r) >< S2 (x y)
 ```
 
 The full format, with conditions, references to named nets and calls to a host, is in the
-docstring of [`inets.system`](src/inets/system.py).
+docstring of [`inets.system`](https://github.com/sigilante/inets/blob/master/src/inets/system.py).
 
 ```python
 import inets
@@ -184,7 +201,7 @@ reduction by need as soon as the value wanted is a value, its own inputs not ask
 | `"lazy"` | The same with the demand for evaluation carried by agents in the net, so that every pair can be fired and only wanted work is done; no work is shared | 15, 50 |
 | `"ivm"` | The interaction system of the IVM, the machine that runs [Vine](https://github.com/VineLang/vine), read from its source | 5, 20 |
 
-[`inets.ski`](src/inets/ski.py) reads and writes terms of S, K and I, builds them as nets,
+[`inets.ski`](https://github.com/sigilante/inets/blob/master/src/inets/ski.py) reads and writes terms of S, K and I, builds them as nets,
 names their subterms as references to nets, and reduces them in the three ways of the demo
 (`inets run ski TERM`, with `--rounds` or `--lazy`, and `--dot` to print the net that is
 left as Graphviz text):
@@ -195,7 +212,7 @@ run = ski.run("```SII0")                   # S I I 0, by need
 ski.show(run.term), run.result.counts       # ('`00', {'collect': 3, 'contract': 3, 'copy': 1})
 ```
 
-[`inets.ivm`](src/inets/ivm.py) runs programs written in Ivy, Vine's text for nets, by the
+[`inets.ivm`](https://github.com/sigilante/inets/blob/master/src/inets/ivm.py) runs programs written in Ivy, Vine's text for nets, by the
 `ivm` table (`inets run ivm FILE.iv`). For the thirteen programs in `tests/ivm`, the tests
 hold it, in three orders of reduction, to the output, the six interaction counts and the
 error flags that `ivm run` gave when they were recorded; with `IVM` set they compare
@@ -204,23 +221,20 @@ examples, and the IVM's example `hi.iv`, agreed in the same way in a run that is
 here and cannot be repeated from this repository. It supplies twenty extrinsic functions (N32 arithmetic and comparison, the IVM's
 branch, `print_char`, and the IO value's split and merge) and stops at any other.
 
-[`inets.ivy`](src/inets/ivy.py) reads Ivy text for any system.
+[`inets.ivy`](https://github.com/sigilante/inets/blob/master/src/inets/ivy.py) reads Ivy text for any system.
 
 `inets --help` lists the commands.
 
 ## In a notebook
 
-[`kernel/`](kernel) is a second small package, `inets-kernel`: a Jupyter kernel in which a
+[`kernel/`](https://github.com/sigilante/inets/tree/master/kernel) is a second small package, `inets-kernel`: a Jupyter kernel in which a
 cell is a table, a net, or a command. A net is written as the right-hand side of a rule
 is, and is drawn before and after it is reduced, with the active pairs marked.
 
-```sh
-pip install inets-kernel
-python -m inets_kernel.install --sys-prefix     # or --user
-jupyter lab notebooks/
-```
+It is installed as above; `jupyter lab notebooks/` in a copy of the repository opens the
+notebooks.
 
-[`notebooks/`](notebooks) has three to start from: the three rules of the combinators;
+[`notebooks/`](https://github.com/sigilante/inets/tree/master/notebooks) has three to start from: the three rules of the combinators;
 building a system of your own, for adding numbers; and one term reaching three ends. They
 are written and run by `notebooks/make.py`, so what they show is what the kernel gives.
 The pictures need Graphviz's `dot`.
@@ -262,4 +276,4 @@ by need should be lower than this package's (the two have not been compared).
 
 ## Licence
 
-MIT. See [LICENSE](LICENSE).
+MIT. See [LICENSE](https://github.com/sigilante/inets/blob/master/LICENSE).

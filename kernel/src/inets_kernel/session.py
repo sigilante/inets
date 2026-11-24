@@ -189,6 +189,8 @@ class Session:
                 seen[name] = port
 
         def term(toks):
+            if not toks:
+                raise CellError("an equation is PORT = PORT, and one side is missing")
             head = toks.pop(0)
             if head in ("(", ")", "=", ";"):
                 raise CellError(f"expected a node or a wire, not {head}")

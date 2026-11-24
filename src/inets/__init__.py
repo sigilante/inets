@@ -19,7 +19,7 @@ from .errors import Error, IvyError, Stuck, TableError, TermError
 from .net import Host, Library, Net, Port, Result
 from .system import Agent, Rule, System, bundled
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 
 __all__ = ["System", "Agent", "Rule", "bundled", "Net", "Port", "Result", "Host", "Library",
            "Error", "TableError", "IvyError", "TermError", "Stuck"]
