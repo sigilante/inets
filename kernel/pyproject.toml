@@ -18,7 +18,7 @@ classifiers = [
     "Intended Audience :: Education",
     "Programming Language :: Python :: 3",
 ]
-dependencies = ["inets>=0.1.3", "ipykernel>=6", "jupyter_client>=7"]
+dependencies = ["inets>=0.1.3,<0.2", "ipykernel>=6", "jupyter_client>=7"]
 
 [project.optional-dependencies]
 test = ["pytest", "nbclient", "nbformat"]

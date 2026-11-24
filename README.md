@@ -230,8 +230,8 @@ ski.run("``KI```SII``SII", table="lazy", schedule="rounds").term    # 'I'
 ```
 
 `ski.run` takes `table` (`"ski"`, `"lazy"`, or a `System` of the same agents) and
-`schedule` (`"need"` or `"rounds"`); the `lazy` table carries its own demand and is
-reduced in rounds. `net_class` gives a subclass of `inets.Net` to build, one that keeps
+`schedule` (`"need"` or `"rounds"`); the `lazy` table carries its own demand and must be
+given `schedule="rounds"`. `net_class` gives a subclass of `inets.Net` to build, one that keeps
 tallies of its own, say.
 
 [`inets.ivm`](https://github.com/sigilante/inets/blob/master/src/inets/ivm.py) runs programs written in Ivy, Vine's text for nets, by the

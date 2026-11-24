@@ -271,7 +271,7 @@ def _when(toks):
 
 
 def _term(toks, agents, body, raw):
-    """An end, or ("var", letter). Makes nodes and raw links as it goes."""
+    """An end, or a ``_Var`` for a letter. Makes nodes and raw links as it goes."""
     head = toks.pop(0)
     if head in ("left", "right"):
         return Pair(int(head == "right"))

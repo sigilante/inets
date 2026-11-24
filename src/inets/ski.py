@@ -368,7 +368,8 @@ def run(term, schedule="need", definitions=None, direct=False, deep=True, sweep_
     ``table`` is ``"ski"`` (the default), ``"lazy"``, or a :class:`~inets.System` of the
     same agents (a copy of either table, say). A table with an ``nf`` agent carries its
     own demand, as ``lazy`` does: a demand for the normal form is placed at the root, and
-    it is reduced in rounds. ``schedule`` is ``"need"`` (by need,
+    it must be given ``schedule="rounds"`` (the default, ``"need"``, raises
+    :class:`~inets.errors.TermError`). ``schedule`` is ``"need"`` (by need,
     :meth:`inets.Net.reduce_by_need`) or ``"rounds"`` (every pair fired,
     :meth:`inets.Net.reduce_in_rounds`). ``schedule="lazy"`` is an older way to say
     ``table="lazy", schedule="rounds"`` and gives a ``DeprecationWarning``.

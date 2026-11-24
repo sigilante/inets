@@ -21,5 +21,5 @@ def test_every_version_string_agrees():
     assert _field("pyproject.toml", r'^version = "([^"]+)"') == version
     assert _field("kernel/pyproject.toml", r'^version = "([^"]+)"') == version
     assert _field("kernel/src/inets_kernel/__init__.py", r'^__version__ = "([^"]+)"') == version
-    assert _field("kernel/pyproject.toml", r'"inets>=([^"]+)"') == version
+    assert _field("kernel/pyproject.toml", r'"inets>=([^",]+)[,"]') == version
     assert _field("CHANGELOG.md", r"^## (\S+)") == version

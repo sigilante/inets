@@ -11,7 +11,9 @@ Changes to the interface, made before 1.0:
 - `Net.sweep` and `Net.reduce_by_need` collapse the table's duplicators unless told
   otherwise: `collapse=None`, the default, means the declared ones, and `()` none. Before,
   the default collapsed nothing; a caller that reduced the `ski` table by need without
-  `collapse=("dup",)` now gets fewer copies, and the same contractions and answers.
+  `collapse=("dup",)` now gets fewer copies, and the same contractions and answers. A table of your own
+  is collapsed only if it declares its duplicators: one that does not now collapses
+  nothing unless given `collapse=` by name.
 - The options of `Net.reduce_by_need` after the port are keyword-only.
 - `inets.ski.run` takes `table` (`"ski"`, `"lazy"` or a `System`) and `schedule`
   (`"need"` or `"rounds"`) separately, and `net_class`, the class of net to build. A
