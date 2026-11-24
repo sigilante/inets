@@ -1,70 +1,84 @@
+from importlib import resources
+
 import pytest
 
 import inets
-from inets import system
+from inets import System, ski
 
 
-@pytest.mark.parametrize("name,agents,rules,typed", [
+@pytest.mark.parametrize("name,agents,rules,signed", [
     ("combinators", 3, 6, False), ("ski", 12, 27, True), ("lazy", 15, 50, True), ("ivm", 5, 20, False)])
-def test_bundled_tables_are_clean(name, agents, rules, typed):
+def test_bundled_tables_are_clean(name, agents, rules, signed):
     s = inets.bundled(name)
-    assert (len(s.agents), len(s.rules), s.typed) == (agents, rules, typed)
-    assert inets.check(s) == []
+    assert (len(s.agents), len(s.rules), s.signed) == (agents, rules, signed)
+    assert s.check() == []
 
 
 def broken(old, new, name="ski"):
-    from importlib import resources
     text = resources.files("inets.systems").joinpath(name + ".rules").read_text()
     assert old in text
-    return text.replace(old, new, 1)
+    return System.parse(text.replace(old, new, 1))
 
 
-def test_two_outputs_joined_is_refused():
-    s = system.parse(broken("f = app (g r)", "f = app (r g)"))
-    assert any("joins two" in p for p in inets.check(s))
+def has(problems, phrase):
+    return any(phrase in p for p in problems)
 
 
-def test_a_port_left_unused_is_refused():
-    s = system.parse(broken("=> r = x; y = era", "=> r = x"))
-    assert any("port y is used 0 times" in p for p in inets.check(s))
+def test_two_outputs_joined_is_reported():
+    assert has(broken("f = app (g r)", "f = app (r g)").check(), "joins two")
 
 
-def test_a_missing_rule_is_refused():
-    text = broken("rule era >< I\n  => nothing\n  count erase\n", "")
-    assert "no rule for era >< I" in inets.check(system.parse(text))
+def test_a_port_left_unused_is_reported():
+    assert has(broken("=> r = x; y = era", "=> r = x").check(), "port y is used 0 times")
 
 
-def test_a_wire_with_three_ends_is_refused():
+def test_a_missing_rule_is_reported():
+    assert "no rule for era >< I" in broken("rule era >< I\n  => nothing\n  count erase\n", "").check()
+    assert "no rule for era >< era" in broken("rule era >< era\n  => nothing\n  count erase\n", "", "combinators").check()
+
+
+def test_a_wire_with_three_ends_cannot_be_read():
     with pytest.raises(inets.TableError, match="3 ends"):
-        system.parse(broken("=> p = K1 (a); q = K1 (b); x = dup (a b)", "=> p = K1 (a); q = K1 (a); x = dup (a b)"))
-
-
-def test_a_missing_pair_is_refused_without_signs():
-    text = broken("rule era >< era\n  => nothing\n  count erase\n", "", "combinators")
-    assert "no rule for era >< era" in inets.check(system.parse(text))
+        broken("=> p = K1 (a); q = K1 (b); x = dup (a b)", "=> p = K1 (a); q = K1 (a); x = dup (a b)")
 
 
 def test_conditions_that_may_leave_a_case_out_are_reported():
-    text = broken("rule comb l (a b) >< comb m (c d) when l = m", "rule comb l (a b) >< comb m (c d) when l = 0", "ivm")
-    assert any("may leave a case out" in p for p in inets.check(system.parse(text)))
+    s = broken("rule comb l (a b) >< comb m (c d) when l = m", "rule comb l (a b) >< comb m (c d) when l = 0", "ivm")
+    assert has(s.check(), "may leave a case out")
 
 
-def test_typing_does_not_make_a_rule_right():
-    """S with its arguments exchanged is well typed; only running it shows the fault."""
-    from inets import ski
-    text = broken("=> r = S2 (x y)", "=> r = S2 (y x)")
-    s = system.parse(text)
-    assert inets.check(s) == []
+def test_a_rule_that_can_never_apply_is_reported():
+    s = broken("rule era >< era\n  => nothing\n  count erase\n",
+               "rule era >< era\n  => nothing\n  count erase\n\nrule era >< era\n  => nothing\n  count erase\n", "combinators")
+    assert has(s.check(), "can never apply")
+
+
+def test_a_parameter_not_in_hand_is_reported():
+    assert has(broken("when l = m", "when q = m", "ivm").check(), "q is not a parameter in hand")
+    assert has(broken("=> call f (v) -> a b", "=> call f (v) -> a z", "ivm").check(), "z is not an auxiliary port")
+
+
+def test_mixed_signs_are_reported():
+    assert System.parse("agent a +\nagent b 0\n").check() == ["some agents have signs and some do not"]
+
+
+def test_a_cut_short_line_is_a_table_error():
+    with pytest.raises(inets.TableError):
+        System.parse("agent a 1\nrule a (x >< a (y)\n")
+
+
+def test_signs_do_not_make_a_rule_right():
+    """S with its arguments exchanged passes every check; only running it shows the fault."""
+    s = broken("=> r = S2 (x y)", "=> r = S2 (y x)")
+    assert s.check() == []
     net = inets.Net(s)
     root = net.free()
     net.wire(root, ski.encode(net, ski.parse("```SKS0")))
-    net.by_need(root)
-    assert ski.read(net, root) != ski.tree_normal_form(ski.parse("```SKS0"))[0]
+    net.reduce_by_need(root)
+    assert ski.read_back(net, root) != ski.tree_normal_form(ski.parse("```SKS0"))[0]
 
 
 def test_rules_that_are_not_local_are_marked():
-    s = inets.bundled("ivm")
-    assert sum(r.peeks for r in s.rules) == 1
-    assert sum(r.kind == "call" for r in s.rules) == 2
-    assert sum(r.kind == "expand" for r in s.rules) == 3
-    assert sum(any(r.keeps) for r in s.rules) == 1
+    marks = [m for r in inets.bundled("ivm").rules for m in r.not_local]
+    assert sorted(marks) == sorted(["looks at a neighbour"] + ["calls the host"] * 2 + ["expands a named net"] * 3 + ["keeps a node"])
+    assert all(not r.not_local for r in inets.bundled("combinators").rules)

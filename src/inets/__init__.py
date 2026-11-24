@@ -2,37 +2,24 @@
 
     >>> import inets
     >>> system = inets.bundled("combinators")
-    >>> inets.check(system)
+    >>> system.check()
     []
     >>> net = inets.Net(system)
     >>> a, b = net.free(), net.free()
-    >>> net.wire(net.node("con", a, b), net.node("con", net.node("era"), net.node("era")))
-    >>> net.reduce().reason
-    'normal'
+    >>> net.wire(net.make("con", a, b), net.make("dup", net.make("era"), net.make("era")))
+    >>> result = net.reduce()
+    >>> result.reason, result.counts
+    ('normal', {'commute': 1, 'erase': 2})
 
-See :mod:`inets.system` for the table format, :mod:`inets.net` for nets and schedules, and
-:mod:`inets.ski` for the combinators S, K and I as agents.
+See :mod:`inets.system` for the table format, :mod:`inets.net` for nets and schedules,
+:mod:`inets.ski` for the combinators S, K and I as agents, :mod:`inets.ivm` for programs
+of Vine's IVM, and :mod:`inets.ivy` for Ivy text.
 """
-from functools import lru_cache
-from importlib import resources
-
-from .net import FREE, Host, Net, Result, Stuck
-from .system import Agent, Rule, System, TableError, check, load, parse
+from .errors import Error, IvyError, Stuck, TableError, TermError
+from .net import Host, Library, Net, Port, Result
+from .system import Agent, Rule, System, bundled
 
 __version__ = "0.1.0"
 
-BUNDLED = ("combinators", "ski", "lazy", "ivm")
-
-
-@lru_cache(maxsize=None)
-def bundled(name):
-    """One of the tables that come with the package: ``combinators`` (the symmetric
-    interaction combinators), ``ski`` and ``lazy`` (S, K and I as agents; see
-    :mod:`inets.ski`), ``ivm`` (the interaction system of Vine's IVM; see
-    :mod:`inets.ivm`). The same object is returned each time: do not change it."""
-    text = resources.files("inets.systems").joinpath(name + ".rules").read_text(encoding="utf-8")
-    return parse(text, name)
-
-
-__all__ = ["Agent", "Rule", "System", "TableError", "check", "load", "parse", "bundled",
-           "Net", "Host", "Result", "Stuck", "FREE"]
+__all__ = ["System", "Agent", "Rule", "bundled", "Net", "Port", "Result", "Host", "Library",
+           "Error", "TableError", "IvyError", "TermError", "Stuck"]

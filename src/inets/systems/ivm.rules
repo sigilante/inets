@@ -25,7 +25,7 @@ rule era >< graft g
 rule graft g >< graft h
   => nothing
   count erase
-  note neither net is expanded: the result could not be seen
+  # neither net is expanded: the result could not be seen
 
 rule val v >< era
   => nothing
@@ -78,7 +78,7 @@ rule graft g >< comb l (a b) when l = 0
 rule graft g >< comb l (a b) when l != 0
   => a = graft g; b = graft g
   count copy
-  note a reference is copied by a combinator of any label but 0, and expanded by label 0
+  # a reference is copied by a combinator of any label but 0, and expanded by label 0
 
 rule graft g >< fn f (a b)
   => expand g
@@ -97,16 +97,16 @@ rule val v >< fn f (a b) when f.split
 rule val v >< fn f (a b) when f.merge and a is val w
   => call f (v w) -> b
   count extrinsic
-  note this rule looks at what is on an auxiliary port
+  # this rule looks at what is on an auxiliary port
 
 rule val v >< fn f (a b) when otherwise
   => a = fn f.swapped (val v b)
   count none
-  note the node turns to face its other argument, keeping the first on its first port;
-  note f.swapped is f with the order of its arguments exchanged
+  # the node turns to face its other argument, keeping the first on its first port;
+  # f.swapped is f with the order of its arguments exchanged
 
 rule fn f (a b) >< fn h (c d)
   => left = era; right = era
   count none
   flag invalid_interaction
-  note two function nodes facing each other is an error whatever their functions
+  # two function nodes facing each other is an error whatever their functions

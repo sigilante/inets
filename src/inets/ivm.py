@@ -13,7 +13,7 @@ The table (``inets.bundled("ivm")``) holds the IVM's twenty rules. This module i
 host: it reads Ivy text of the ``ivm:`` system, copies a named net when a reference is
 expanded, and supplies some of the IVM's extrinsic functions (N32 arithmetic and
 comparison, ``ivm:branch``, ``root:io:print_char``, and the IO value's split and merge).
-A program that calls another stops with ``NotImplementedError``.
+A program that calls any other stops with an :class:`~inets.errors.Error`.
 
 The interaction counts are the IVM's own: on the programs tried they equal what ``ivm
 run`` reports, kind by kind. Not modelled: memory, depth, workers, and the IVM's "vicious
@@ -24,8 +24,10 @@ from __future__ import annotations
 import io
 from dataclasses import dataclass, replace
 
-from . import bundled, ivy
+from . import ivy
+from .errors import Error, IvyError
 from .net import Host, Net, Result
+from .system import bundled
 
 
 @dataclass(frozen=True)
@@ -57,8 +59,9 @@ class Fn:
 IO = Value("io", copy=False)
 
 
-def agent_of(path, payload, names):
-    """The agent and parameter that a node name of the ``ivm:`` system means."""
+def agent_of(tree):
+    """The agent and parameter that a node of the ``ivm:`` system means."""
+    path, payload, names = tree.path, tree.payload, tree.names
     if path in ("ivm:eraser", "ivm:error"):
         return "era", None
     if path == "ivm:graft":
@@ -75,7 +78,7 @@ def agent_of(path, payload, names):
         return "val", Value("branch", tuple(names))
     if path in ("ivm:ext:split", "ivm:ext:merge", "ivm:ext:merge:swap"):
         return "fn", Fn(names[0], path == "ivm:ext:split", path == "ivm:ext:merge:swap")
-    raise SyntaxError("not a node of the ivm: system: " + path)
+    raise IvyError("not a node of the ivm: system: " + path)
 
 
 def _n32(f):
@@ -133,14 +136,14 @@ class IvmHost(Host):
 
     def expand(self, net, name):
         if name not in self.nets:
-            raise KeyError(f"no net named {name}")
+            raise Error(f"no net named {name}")
         if any(path == "ivm:error" for path in _paths(self.nets[name])):
             net.flags.add("error")
         return ivy.instantiate(net, self.nets[name], agent_of)
 
     def call(self, net, function, values, ports):
         if function.name not in EXTRINSICS:
-            raise NotImplementedError(f"inets.ivm has no extrinsic function {function.name}")
+            raise Error(f"inets.ivm has no extrinsic function {function.name}")
         if function.exchanged:
             values = values[::-1]
         result = EXTRINSICS[function.name](self, *values)
@@ -151,11 +154,11 @@ class IvmHost(Host):
             result = [result]
         for port, value in zip(ports, result):
             if value is None:
-                net.wire(port, net.node("era"))
+                net.wire(port, net.make("era"))
             elif isinstance(value, tuple):
-                net.wire(port, net.node(value[0], param=value[1]))
+                net.wire(port, net.make(value[0], param=value[1]))
             else:
-                net.wire(port, net.node("val", param=value))
+                net.wire(port, net.make("val", param=value))
 
 
 def _paths(equations):
@@ -163,14 +166,15 @@ def _paths(equations):
     while stack:
         t = stack.pop()
         if not isinstance(t, str):
-            yield t[0]
-            stack.extend(t[3])
+            yield t.path
+            stack.extend(t.kids)
 
 
 @dataclass
 class Run:
     """A finished run of a program: the net, why it stopped, what it printed, and the
-    flags it raised (the IVM's names, with ``no_io`` if the IO value was not returned)."""
+    flags it raised: the net's own (the IVM's names), and ``no_io`` if the IO value was
+    not what came back, which the IVM too works out after the run."""
     net: Net
     result: Result
     output: str
@@ -184,11 +188,13 @@ def run(text, order="stack", seed=0, max_interactions=10 ** 7):
     host = IvmHost(nets)
     net = Net(bundled("ivm"), host)
     root = net.free()
-    start = net.node("comb", net.node("val", param=IO), root, param=0)
-    net.wire(net.node("graft", param="iv:main"), start)
+    if "iv:main" not in nets:
+        raise IvyError("the program has no net iv:main")
+    start = net.make("comb", net.make("val", param=IO), root, param=0)
+    net.wire(net.make("graft", param="iv:main"), start)
     result = net.reduce(order, seed, max_interactions)
     flags = set(net.flags)
-    end = net.link[root][0]
+    end = net.link[root].node
     if not (net.kind[end] == "val" and net.param[end].type == "io"):
         flags.add("no_io")
     return Run(net, result, host.out.getvalue(), flags)

@@ -10,25 +10,27 @@ stand for themselves; a digit is an atom.
     (0, 0)
     >>> ski.show(ski.run("``KI```SII``SII").term)        # K I Ω, by need
     'I'
-    >>> ski.run("``KI```SII``SII", how="all", max_interactions=1000).result.reason
+    >>> ski.run("``KI```SII``SII", schedule="rounds", max_interactions=1000).result.reason
     'interactions'
-    >>> ski.show(ski.run("``KI```SII``SII", how="demand").term)
+    >>> ski.show(ski.run("``KI```SII``SII", schedule="lazy").term)
     'I'
 
 Two tables are used (:func:`inets.bundled`):
 
 - ``ski``: an application fires as soon as its function is a value. Reduced with every
-  pair fired (``how="all"``) it runs work nobody wants and may not stop; reduced by need
-  (``how="need"``) a cursor fires only what the answer depends on, and shares work.
+  pair fired (``schedule="rounds"``) it runs work nobody wants and may not stop; reduced by
+  need (``schedule="need"``) a cursor fires only what the answer depends on, and shares
+  work.
 - ``lazy``: the demand is carried in the net by agents of its own, so every pair can be
-  fired (``how="demand"``) and only wanted work is done; but no work is shared.
+  fired (``schedule="lazy"``) and only wanted work is done; but no work is shared.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
 
-from . import bundled
-from .net import Net, Result
+from .errors import TermError
+from .net import Library, Net, Result
+from .system import bundled
 
 ARITY = {"S": 3, "K": 2, "I": 1}
 PARTIAL = {("S", 1): "S1", ("S", 2): "S2", ("K", 1): "K1"}
@@ -36,8 +38,17 @@ PARTIAL = {("S", 1): "S1", ("S", 2): "S2", ("K", 1): "K1"}
 
 @dataclass(frozen=True)
 class Ref:
-    """A reference to the term named ``k``."""
-    k: object
+    """A reference to a named term."""
+    name: object
+
+
+_SYSTEMS = {}
+
+
+def _system(name):
+    if name not in _SYSTEMS:
+        _SYSTEMS[name] = bundled(name)
+    return _SYSTEMS[name]
 
 
 def parse(text):
@@ -47,12 +58,12 @@ def parse(text):
         if ch.isspace():
             continue
         if done is not None:
-            raise ValueError("text after the end of the term")
+            raise TermError("text after the end of the term")
         if ch == "`":
             stack.append([])
             continue
         if ch not in "SKI" and not ch.isdigit():
-            raise ValueError("not a term: " + ch)
+            raise TermError("not a term: " + ch)
         t = int(ch) if ch.isdigit() else ch
         while stack:
             stack[-1].append(t)
@@ -62,7 +73,7 @@ def parse(text):
         else:
             done = (t,)
     if done is None:
-        raise ValueError("the term is not complete")
+        raise TermError("the term is not complete")
     return done[0]
 
 
@@ -81,7 +92,7 @@ def show(term):
     return "".join(out)
 
 
-def normal(term):
+def is_normal(term):
     """Whether a term has no redex of its own: no combinator has all its arguments, and
     no reference is applied (it might name anything)."""
     todo = [term]
@@ -106,13 +117,13 @@ def encode(net, term, direct=False):
     while work:
         t, box, at = work.pop()
         if isinstance(t, str):
-            box[at] = (net.new(t), 0)
+            box[at] = (net.add_node(t), 0)
             continue
         if isinstance(t, int):
-            box[at] = (net.new("atom", t), 0)
+            box[at] = (net.add_node("atom", t), 0)
             continue
         if isinstance(t, Ref):
-            box[at] = (net.new("ref", t.k), 0)
+            box[at] = (net.add_node("ref", t.name), 0)
             continue
         head, args = t, []
         while isinstance(head, tuple):
@@ -121,7 +132,7 @@ def encode(net, term, direct=False):
         args.reverse()
         take = min(len(args), ARITY[head] - 1) if direct and isinstance(head, str) else 0
         if take:
-            v = net.new(PARTIAL[(head, take)])
+            v = net.add_node(PARTIAL[(head, take)])
             ports = [None] * take
             pending.append((v, 1, ports))
             for i in range(take):
@@ -132,7 +143,7 @@ def encode(net, term, direct=False):
             work.append((head, out, 0))
         for x in args[take:]:
             inert = isinstance(head, int) or lazy
-            n = net.new("stuck" if isinstance(head, int) else "ap" if lazy else "app")
+            n = net.add_node("stuck" if isinstance(head, int) else "ap" if lazy else "app")
             ports = [out, None]
             pending.append((n, 1 if inert else 0, ports))
             work.append((x, ports, 1))
@@ -145,12 +156,11 @@ def encode(net, term, direct=False):
     return resolve(result[0])
 
 
-def read(net, port, definitions=None, limit=10 ** 7):
+def read_back(net, port, definitions=None):
     """The term whose output is joined to the input ``port``. Sharing is unfolded, and
     references are replaced by what ``definitions`` says they name."""
     result = [None]
     work = [("go", net.link[port], result, 0)]
-    seen = 0
     while work:
         op = work.pop()
         if op[0] == "pair":
@@ -158,9 +168,6 @@ def read(net, port, definitions=None, limit=10 ** 7):
             box[at] = (pair[0], pair[1])
             continue
         _, (n, i), box, at = op
-        seen += 1
-        if seen > limit:
-            raise ValueError("the term is larger than the limit")
         kind = net.kind[n]
         if kind == "atom":
             box[at] = net.param[n]
@@ -187,7 +194,7 @@ def read(net, port, definitions=None, limit=10 ** 7):
         elif (kind == "dup" and i in (1, 2)) or (kind in ("ev", "nf") and i == 1):
             work.append(("go", net.link[(n, 0)], box, at))
         else:
-            raise ValueError(f"cannot read a term at port {i} of {kind}")
+            raise TermError(f"cannot read a term at port {i} of {kind}")
     return result[0]
 
 
@@ -197,9 +204,9 @@ def unfold(term, definitions):
 
     def plain(t):
         if isinstance(t, Ref):
-            if t.k not in memo:
-                memo[t.k] = plain(definitions[t.k])
-            return memo[t.k]
+            if t.name not in memo:
+                memo[t.name] = plain(definitions[t.name])
+            return memo[t.name]
         if isinstance(t, tuple):
             spine = []
             while isinstance(t, tuple):
@@ -214,13 +221,13 @@ def unfold(term, definitions):
     return plain(term)
 
 
-def name(term, least=2, any_term=False):
+def name_subterms(term, any_term=False):
     """Names subterms: returns ``(main, definitions)``, where ``main`` is the term with a
     :class:`Ref` in place of each named subterm and ``definitions`` maps each name to its
     term, in which named arguments are again references.
 
     A subterm is named when it is an application in argument position (or the whole
-    term), is in normal form, and has at least ``least`` leaves. Equal subterms get one
+    term) and is in normal form. Equal subterms get one
     name. Only normal forms are named because a reference is expanded afresh at each use:
     naming a term with work left in it would repeat the work. With ``any_term`` every such
     application is named, which is right only for the ``lazy`` table, where no work is
@@ -258,7 +265,7 @@ def name(term, least=2, any_term=False):
             info.append((None, fn, an, min(fs + asz, 10 ** 9), fnorm and anorm and under, head, nargs + 1))
         by_id[id(t)] = number[key]
     root = by_id[id(term)] if isinstance(term, tuple) else number[term]
-    named = lambda n: info[n][0] is None and (any_term or info[n][4]) and info[n][3] >= least
+    named = lambda n: info[n][0] is None and (any_term or info[n][4])
     inline, definitions = [None] * len(info), {}
     for n, (leaf, f, a, *_rest) in enumerate(info):
         inline[n] = leaf if leaf is not None else (inline[f], Ref(a) if named(a) else inline[a])
@@ -270,9 +277,9 @@ def name(term, least=2, any_term=False):
     while todo:
         t = todo.pop()
         if isinstance(t, Ref):
-            if t.k not in keep:
-                keep[t.k] = definitions[t.k]
-                todo.append(definitions[t.k])
+            if t.name not in keep:
+                keep[t.name] = definitions[t.name]
+                todo.append(definitions[t.name])
         elif isinstance(t, tuple) and id(t) not in seen:
             seen.add(id(t))
             todo.extend(t)
@@ -325,60 +332,51 @@ def tree_normal_form(term, max_steps=2000, max_leaves=20000):
     return None, max_steps
 
 
-def terms(leaves, size):
-    """Every term with exactly ``size`` leaves drawn from ``leaves``."""
-    if size == 1:
-        return list(leaves)
-    return [(a, b) for k in range(1, size) for a in terms(leaves, k) for b in terms(leaves, size - k)]
-
-
 @dataclass
 class Run:
-    """A finished run: the net, why it stopped, and the term read back (None at a cap)."""
+    """A finished run: the net, why it stopped, the term read back (None if the run did
+    not finish), and the free port the term's value is joined to."""
     net: Net
     result: Result
     term: object
     root: tuple
 
 
-def build(term, how="need", definitions=None, direct=False):
-    """A net for a term, ready to reduce: returns ``(net, root)``, the root being the free
-    port the term's value will be joined to. ``how`` chooses the table: ``"need"`` and
-    ``"all"`` use ``ski``; ``"demand"`` uses ``lazy``, with a demand for the normal form
-    placed at the root."""
-    if isinstance(term, str) and how in ("need", "all", "demand") and (len(term) > 1 or term not in "SKI"):
+def run(term, schedule="need", definitions=None, direct=False, deep=True, sweep_above=20000,
+        max_interactions=10 ** 6):
+    """Reduces a term (a term, or its prefix form) and reads the result back.
+
+    ``schedule`` is ``"need"`` (the ``ski`` table, by need), ``"rounds"`` (the ``ski``
+    table, every pair fired) or ``"lazy"`` (the ``lazy`` table, every pair fired, with a
+    demand for the normal form placed at the root).
+
+    ``definitions`` are the named terms that references in ``term`` name
+    (:func:`name_subterms`). With ``direct`` a combinator short of arguments is built as
+    the value it is. ``deep`` and ``sweep_above`` are for reduction by need
+    (:meth:`inets.Net.reduce_by_need`): with ``deep`` false it stops when the head is a
+    value.
+    """
+    if schedule not in ("need", "rounds", "lazy"):
+        raise TermError('schedule is "need", "rounds" or "lazy"')
+    if isinstance(term, str):
         term = parse(term)
-    system = bundled("lazy" if how == "demand" else "ski")
-    net = Net(system)
     definitions = definitions or {}
-    if how != "demand":
+    if schedule != "lazy":
         for k, t in definitions.items():
-            if not normal(t):
-                raise ValueError(f"the term named {k} is not in normal form: with the ski table only normal forms may be named")
-    for k, t in definitions.items():
-        net.define(k, lambda net, t=t: encode(net, t, direct))
+            if not is_normal(t):
+                raise TermError(f"the term named {k} is not in normal form: with the ski table only normal forms may be named")
+    host = Library({k: (lambda net, t=t: encode(net, t, direct)) for k, t in definitions.items()})
+    net = Net(_system("lazy" if schedule == "lazy" else "ski"), host)
     root = net.free()
     out = encode(net, term, direct)
-    if how == "demand":
-        ask = net.new("nf")
+    if schedule == "lazy":
+        ask = net.add_node("nf")
         net.wire((ask, 0), out)
         net.wire(root, (ask, 1))
     else:
         net.wire(root, out)
-    return net, root
-
-
-def run(term, how="need", definitions=None, direct=False, deep=True,
-        max_interactions=10 ** 6, max_nodes=10 ** 6):
-    """Reduces a term (a term, or its prefix form) and reads the result back.
-
-    ``how`` is ``"need"`` (the ``ski`` table, by need), ``"all"`` (the ``ski`` table, every
-    pair fired in rounds) or ``"demand"`` (the ``lazy`` table, every pair fired in rounds).
-    With ``deep`` false, reduction by need stops when the head is a value.
-    """
-    net, root = build(term, how, definitions, direct)
-    if how == "need":
-        result = net.by_need(root, deep, max_interactions, max_nodes)
+    if schedule == "need":
+        result = net.reduce_by_need(root, deep, sweep_above, max_interactions)
     else:
-        result = net.rounds(max_interactions, max_nodes)
-    return Run(net, result, read(net, root, definitions) if result.stopped else None, root)
+        result = net.reduce_in_rounds(max_interactions)
+    return Run(net, result, read_back(net, root, definitions) if result.finished else None, root)

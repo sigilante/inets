@@ -4,11 +4,11 @@ Interaction nets in Python: declare an interaction system as a table of rules, c
 table, and reduce nets by it under a schedule you choose.
 
 It is a reference and a teaching tool. It is small, it has no dependencies, and it is not
-fast. What it says about a system rests on tests and on checks of the table, not on proof.
+fast. What it says about a system rests on checks of the table and on tests, not on proof.
 
 ```sh
 git clone https://github.com/sigilante/inets && cd inets
-pip install -e .        # Python 3.10 or later; not on PyPI
+pip install -e '.[test]'     # Python 3.10 or later; not on PyPI
 inets demo
 ```
 
@@ -19,11 +19,12 @@ port*, through which it interacts, and some auxiliary ports. Where a wire joins 
 principal ports there is an *active pair*, and a rule replaces the pair by a small net.
 That is all a net can do.
 
-The rules do not say which active pair to fire first, and for local rules it does not
-matter to the result: every order that stops, stops at the same net after the same number
-of interactions. What the order decides is *whether* it stops. `inets demo` shows it on one
-term of the combinators S, K and I: `K I Ω`, where `Ω` reduces to itself without end and
-`K` discards it.
+The rules do not say which active pair to fire first. For rules that look at nothing but
+their pair, the order does not matter to the result: every order that stops, stops at the
+same net after the same number of interactions. That is a theorem about interaction nets,
+which this package relies on and does not prove. What the order does decide is *whether*
+the net stops. `inets demo` shows it on one term of the combinators S, K and I: `K I Ω`,
+where `Ω` reduces to itself without end and `K` discards it.
 
 ```
 ski table, by need: only the pairs the answer depends on
@@ -40,24 +41,42 @@ is a normal form of the part of the net the answer can reach, not of the net.
 
 ## A system is a table
 
+This is a whole table, for the symmetric interaction combinators. It comes with the
+package as `combinators`.
+
 ```
 agent con 2      # a constructor: two auxiliary ports
 agent dup 2      # a duplicator
 agent era 0      # an eraser
 
-rule con (a b) >< con (c d)
+rule con (a b) >< con (c d)        # two of a kind annihilate
   => a = c; b = d
   count annihilate
 
-rule con (a b) >< dup (c d)
+rule dup (a b) >< dup (c d)
+  => a = c; b = d
+  count annihilate
+
+rule con (a b) >< dup (c d)        # two of different kinds copy each other
   => a = dup (p q); b = dup (r s); c = con (p r); d = con (q s)
   count commute
+
+rule era >< con (a b)              # an eraser erases, and sends erasers on
+  => a = era; b = era
+  count erase
+
+rule era >< dup (a b)
+  => a = era; b = era
+  count erase
+
+rule era >< era
+  => nothing
+  count erase
 ```
 
-That is part of the table for the symmetric interaction combinators, which comes with the
-package. In the right-hand side of a rule a letter bound on the left is the port that was
-joined there, any other letter is a new wire and occurs exactly twice, and `dup (p q)` is a
-new node standing for its principal port. `count` names the statistic the rule adds to.
+In the right-hand side of a rule a letter bound on the left is the port that was joined
+there, any other letter is a new wire and occurs exactly twice, and `dup (p q)` is a new
+node standing for its principal port. `count` names the statistic the rule adds to.
 
 A table may also give each port a sign, `+` for an output and `-` for an input, as the
 tables for S, K and I do:
@@ -77,48 +96,65 @@ docstring of [`inets.system`](src/inets/system.py).
 ```python
 import inets
 
-system = inets.load("my.rules")          # or inets.bundled("combinators")
-print(inets.check(system))               # [] if no problem was found
+system = inets.bundled("combinators")      # or inets.System.load("a-table-of-yours.rules")
+print(system.check())                      # [] if no problem was found
 
 net = inets.Net(system)
-a, b = net.free(), net.free()            # two free ports
-net.wire(net.node("con", a, b), net.node("dup", net.node("era"), net.node("era")))
-result = net.reduce()                    # or net.rounds(), or net.by_need(port)
-print(result.reason, result.counts)      # normal {'commute': 1, 'erase': 2}
-print(net.dot())                         # the net as Graphviz text
+a, b = net.free(), net.free()              # two free ports: loose ends to attach to or read from
+net.wire(net.make("con", a, b), net.make("dup", net.make("era"), net.make("era")))
+result = net.reduce()                      # or net.reduce_in_rounds(), or net.reduce_by_need(port)
+print(result.reason, result.counts)        # normal {'commute': 1, 'erase': 2}
+print(net.dot())                           # the net as Graphviz text
 ```
+
+`net.make(agent, *ports)` makes a node, joins its auxiliary ports to the ports given, and
+returns its principal port; `net.wire` joins two ports. A port is a node's number and an
+index, 0 for the principal port.
 
 ## What checking a table means
 
-`inets.check` (or `inets check TABLE`) looks for these, and reports each as a sentence:
+`system.check()`, or `inets check TABLE`, reports each problem as a sentence. For any
+table:
 
-- a rule that does not use every auxiliary port of its pair exactly once, or that leaves a
-  port of a new node unjoined: the net it makes must have the pair's free ports;
-- a pair of agents with no rule;
-- several rules for one pair whose conditions may leave a case out;
-- in a table with signs, a rule that joins two outputs or two inputs. If no rule does, a
-  net whose wires each join an output to an input keeps that property, so the only
-  principal ports that can meet are an output's and an input's, and each such pair has a
-  rule.
+- a rule with no body or no count, or one that uses a parameter or a port it does not
+  have;
+- a rule whose right-hand side does not use every auxiliary port of its pair exactly once,
+  or leaves a port of a new node unjoined: the net it makes must have the pair's free
+  ports;
+- a rule that can never apply, because an earlier one for the same pair always does;
+- several rules for one pair whose conditions cannot be seen to cover every case.
+
+For a table without signs, also: a pair of agents with no rule.
+
+For a table with signs, also: an agent without them; a rule not written consumer `><`
+value (a consumer's principal port is an input, a value's an output); a consumer and value
+with no rule, or a rule between two values or two consumers; and a rule that joins two
+outputs or two inputs. If no rule does that, a net whose wires each join an output to an
+input stays that way, so the only principal ports that can meet are a consumer's and a
+value's, and each such pair has a rule.
 
 It does not decide whether a system terminates, and it does not show that a rule is the
-right one: S with its arguments exchanged passes every check. For local rules, that the
-order of reduction does not matter is a theorem about interaction nets and is not checked
-here. `inets rules TABLE` marks each rule that is *not* local in that sense: one that looks
-at a neighbour, expands a named net, calls the host, or keeps one of its pair.
+one intended: S with its arguments exchanged passes every check. `inets rules TABLE` marks
+each rule that is *not* a local rule: one that looks at a neighbour, expands a named net,
+calls the host, or keeps one of its pair. The theorem about order is for local rules.
 
 ## Three schedules
 
-| Method | Fires | Needs | Says when it stops |
+| Method | Fires | Needs | Stops with |
 |---|---|---|---|
-| `net.reduce(order=...)` | one active pair at a time: newest first, oldest first, or at random | any table | `normal` |
-| `net.rounds()` | every active pair, round by round | any table | `normal`, with the number of rounds and the widest round |
-| `net.by_need(port)` | only the pairs that the value wanted at `port` depends on | a table with signs | `wanted`, with the active pairs it left |
+| `net.reduce(order=...)` | one active pair at a time: `"stack"` (newest first), `"queue"` (oldest first) or `"random"` | any table | `normal` |
+| `net.reduce_in_rounds()` | every active pair, round by round | any table | `normal`, with the number of rounds and the widest round |
+| `net.reduce_by_need(port)` | only the pairs that the value wanted at `port` depends on | a table with signs | `wanted`, with the active pairs it left |
 
-The number of rounds is the net's span: the longest chain of interactions that must follow
-one another. Each schedule takes caps on interactions and on nodes and reports which it
-hit. Reduction by need never fires the pairs that would erase what is no longer wanted;
-`net.sweep` removes what a port cannot reach.
+Each takes `max_interactions` and stops with `interactions` if it gets there; a run in
+rounds looks at the cap between rounds, so it may pass it by less than a round. The number
+of rounds is the net's span: the longest chain of interactions that must follow one
+another. A result's counts are for that run.
+
+Reduction by need never fires the pairs that would erase what is no longer wanted. So that
+a long run does not fill up, it sweeps the net when it passes 20,000 nodes, and again each
+time the net doubles: `net.sweep(ports)` keeps what those ports can reach and removes the
+rest. Sweeping needs an eraser in the table.
 
 ## The tables that come with it
 
@@ -130,39 +166,48 @@ hit. Reduction by need never fires the pairs that would erase what is no longer 
 | `"ivm"` | The interaction system of the IVM, the machine that runs [Vine](https://github.com/VineLang/vine), read from its source | 5, 20 |
 
 [`inets.ski`](src/inets/ski.py) reads and writes terms of S, K and I, builds them as nets,
-names their subterms as references, and reduces them in the three ways of the demo:
+names their subterms as references to nets, and reduces them in the three ways of the demo
+(`inets run ski TERM`, with `--rounds` or `--lazy`):
 
 ```python
 from inets import ski
-run = ski.run("```SII0")                  # S I I 0, by need
-ski.show(run.term), run.result.counts      # ('`00', {'collect': 3, 'contract': 3, 'copy': 1})
+run = ski.run("```SII0")                   # S I I 0, by need
+ski.show(run.term), run.result.counts       # ('`00', {'collect': 3, 'contract': 3, 'copy': 1})
 ```
 
 [`inets.ivm`](src/inets/ivm.py) runs programs written in Ivy, Vine's text for nets, by the
-`ivm` table (`inets ivm FILE.iv`). On the twelve programs in `tests/ivm`, in three orders of
-reduction, it prints what `ivm run` prints and agrees with it on each of the IVM's six
-interaction counts and on its error flags; the same held, in a run that is not kept, for
-six of Vine's own examples compiled to Ivy. It supplies twenty of the IVM's extrinsic
-functions and stops at any other.
+`ivm` table (`inets run ivm FILE.iv`). For the thirteen programs in `tests/ivm`, the tests
+hold it, in three orders of reduction, to the output, the six interaction counts and the
+error flags that `ivm run` gave when they were recorded; with `IVM` set they compare
+output and counts with the binary directly. Six programs compiled from Vine's own
+examples, and the IVM's example `hi.iv`, agreed in the same way in a run that is not kept
+here. It supplies twenty extrinsic functions (N32 arithmetic and comparison, the IVM's
+branch, `print_char`, and the IO value's split and merge) and stops at any other.
 
-[`inets.ivy`](src/inets/ivy.py) reads and writes Ivy text for any system.
+[`inets.ivy`](src/inets/ivy.py) reads Ivy text for any system.
+
+`inets --help` lists the commands.
 
 ## Tests
 
 ```sh
-pip install pytest
-pytest                              # about fifteen seconds
+pytest                              # about ten seconds; 13 tests are skipped unless IVM is set
 IVM=/path/to/ivm pytest             # also compares with an ivm binary directly
 ```
 
 The tests cover the checks on the bundled tables and on deliberately broken ones; small
-nets of the combinators; every term of S, K and I up to size 5 against ordinary term
-rewriting, in each of the three ways and with named subterms; and the IVM programs against
-counts recorded from `ivm run` (VineLang/vine at commit `cf0c325`).
+nets of the combinators, with one net reduced in every order; the Ivy reader; the command
+line; the IVM programs against counts recorded from `ivm run` (VineLang/vine at commit
+`cf0c325`); and a census of S, K and I. The census takes every term up to size 5 (size 4
+with two atoms) that has a normal form by ordinary term rewriting within its caps. By need
+and by the `lazy` table each reaches that normal form, the `lazy` table in exactly as many
+contractions as rewriting takes steps and by need in no more. With every pair fired, the
+`ski` table reaches it or runs into the cap.
 
 ## What it is not
 
-- **Fast.** A net is Python dictionaries. Tens of thousands of interactions a second.
+- **Fast.** A net is Python dictionaries: roughly a hundred thousand interactions a second
+  on a laptop.
 - **A language.** There is a table format and a Python interface, and nothing above them.
 - **A proof.** Checks and tests.
 - **Complete for the IVM.** Memory, depth, workers and most extrinsic functions are left
@@ -174,7 +219,8 @@ The tables, the checks and the machine were worked out in
 [vine-aviary](https://github.com/sigilante/vine-aviary), which has the measurements behind
 the `ski` and `lazy` tables and the argument for why a net of agents cannot both stop when
 it should and share work. This package is that code made general. It does not yet replace
-it: vine-aviary's own machine also drops a duplicator that has lost one of its copies, so
-its counts of copies under reduction by need are lower than this package's.
+it: vine-aviary's own machine also removes a duplicator that has lost one of its copies,
+where this one gives the lost copy to an eraser, so its counts of copies under reduction
+by need should be lower than this package's (the two have not been compared).
 
-No licence has been chosen yet.
+No licence has been chosen yet, so for now all rights are reserved.

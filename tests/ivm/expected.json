@@ -1,4 +1,16 @@
 {
+ "arithmetic.iv": {
+  "counts": {
+   "annihilate": 1,
+   "commute": 0,
+   "copy": 0,
+   "erase": 0,
+   "extrinsic": 41,
+   "graft": 2
+  },
+  "flags": [],
+  "output": "ABCDEFGHJK101011Z"
+ },
  "comb_fn.iv": {
   "counts": {
    "annihilate": 2,
