@@ -207,14 +207,17 @@ def read_back(net, port, definitions=None):
 def unfold(term, definitions):
     """The term with every reference replaced by the term it names."""
     # Iterative, so that a deep term does not reach Python's recursion limit.
-    memo, result, stack = {}, [], [("term", term)]
+    memo, pending, result, stack = {}, set(), [], [("term", term)]
     while stack:
         kind, x = stack.pop()
         if kind == "term":
             if isinstance(x, Ref):
                 if x.name in memo:
                     result.append(memo[x.name])
+                elif x.name in pending:
+                    raise TermError(f"the term named {x.name} refers to itself, so it has no unfolding")
                 else:
+                    pending.add(x.name)
                     stack.append(("named", x.name))
                     stack.append(("term", definitions[x.name]))
             elif isinstance(x, tuple):
@@ -230,6 +233,7 @@ def unfold(term, definitions):
                 result.append(x)
         elif kind == "named":
             memo[x] = result[-1]
+            pending.discard(x)
         else:
             args = result[len(result) - x:]
             del result[len(result) - x:]

@@ -176,6 +176,15 @@ def test_unfold_handles_a_deep_term():
     assert ski.run(main, schedule="rounds", definitions=definitions).result.finished
 
 
+def test_unfold_refuses_a_definition_that_refers_to_itself():
+    with pytest.raises(inets.errors.TermError, match="refers to itself"):
+        ski.unfold(ski.Ref("a"), {"a": ("K", ski.Ref("a"))})
+    with pytest.raises(inets.errors.TermError, match="refers to itself"):
+        ski.unfold(ski.Ref("a"), {"a": ("K", ski.Ref("b")), "b": ("I", ski.Ref("a"))})
+    shared = ("K", ski.Ref("b"))
+    assert ski.unfold((ski.Ref("a"), ski.Ref("a")), {"a": shared, "b": "I"}) == (("K", "I"), ("K", "I"))
+
+
 def test_run_takes_a_table_and_a_net_class():
     class Tally(inets.Net):
         fired = 0

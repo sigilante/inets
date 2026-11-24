@@ -105,6 +105,26 @@ def test_a_table_declares_its_duplicators():
     assert inets.bundled("combinators").duplicators == ()
 
 
+def test_duplicator_is_a_keyword_only_as_the_last_word():
+    s = inets.System.parse("agent duplicator - + +\nagent num + param duplicator\n")
+    assert s.agents["duplicator"].signs == ("-", "+", "+") and not s.agents["duplicator"].duplicator
+    assert s.agents["num"].param == "duplicator" and not s.agents["num"].duplicator
+    assert s.duplicators == ()
+    s = inets.System.parse("agent duplicator - + + duplicator\nagent v +\n")
+    assert s.duplicators == ("duplicator",)
+
+
+def test_keeps_follows_the_body():
+    rewrite = inets.Rewrite()
+    assert rewrite.keeps == (False, False)
+    rewrite.links.append((inets.Pair(1), inets.Ext("a")))
+    assert rewrite.keeps == (False, True)
+    for rule in inets.bundled("lazy").rules:
+        if isinstance(rule.body, inets.Rewrite):
+            ends = [e for link in rule.body.links for e in link]
+            assert rule.body.keeps == (inets.Pair(0) in ends, inets.Pair(1) in ends)
+
+
 def test_the_ends_of_a_rules_body_are_classes():
     rule = inets.bundled("combinators").rules[2]       # con >< dup: commute
     ends = {type(e) for link in rule.body.links for e in link}
