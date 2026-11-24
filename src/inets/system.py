@@ -2,7 +2,7 @@
 
 A table is lines of text::
 
-    agent NAME PORTS [param P]
+    agent NAME PORTS [param P] [duplicator]
     rule LEFT >< RIGHT [when CONDITION]
       => BODY
       count NAME
@@ -14,7 +14,10 @@ A table is lines of text::
 sign for every port beginning with the principal one, ``+`` for an output and ``-`` for an
 input (``agent app - - +`` has two auxiliary ports). A table gives signs to all its agents
 or to none; :meth:`System.check` reports a mixture. ``param P`` says the agent carries a
-value, which the rules call ``P``.
+value, which the rules call ``P``. ``duplicator`` says the agent's two outputs are each a
+copy of what its input is joined to, which a table can state but its rules cannot show;
+such an agent has signs ``- + +``. A sweep (:meth:`inets.Net.sweep`) removes a duplicator
+that has lost one of its copies.
 
 **Rules.** LEFT and RIGHT name an agent, its parameter if it has one, and its auxiliary
 ports in brackets: ``comb l (a b)``. A rule for ``A >< B`` also serves ``B >< A``. Where a
@@ -77,6 +80,7 @@ class Agent:
     arity: int                       # the number of auxiliary ports
     signs: tuple | None = None       # ("+", "-", ...) beginning with the principal port
     param: str | None = None
+    duplicator: bool = False         # its two outputs are copies of what its input holds
 
     @property
     def is_value(self):
@@ -134,20 +138,45 @@ class Otherwise:
 
 # --- bodies ---
 
+@dataclass(frozen=True)
+class Ext:
+    """An end of a link in a rule's body: what was joined to the pair's auxiliary port
+    named ``letter``."""
+    letter: str
+
+
+@dataclass(frozen=True)
+class New:
+    """An end of a link in a rule's body: port ``port`` (0 is the principal port) of the
+    new node ``node``, an index into :attr:`Rewrite.nodes`."""
+    node: int
+    port: int
+
+
+@dataclass(frozen=True)
+class Pair:
+    """An end of a link in a rule's body: the principal port of the pair's left (``side``
+    0) or right (1) node, which is then kept."""
+    side: int
+
+
+@dataclass(frozen=True)
+class _Var:
+    letter: str
+
+
 @dataclass
 class Rewrite:
     """A body that is a net (``nothing`` is the empty one). ``nodes`` is ``[(agent name,
-    parameter expression or None)]``. A link joins two ends, an end being ``("ext",
-    letter)`` for what was joined to that auxiliary port of the pair, ``("new", node
-    index, port index)``, or ``("pair", 0 or 1)`` for the principal port of the pair's
-    left or right node, which is then kept."""
+    parameter expression or None)]``. ``links`` is a list of pairs of ends, each an
+    :class:`Ext`, a :class:`New` or a :class:`Pair`."""
     nodes: list = field(default_factory=list)
     links: list = field(default_factory=list)
 
     @property
     def keeps(self):
         ends = [e for link in self.links for e in link]
-        return (("pair", 0) in ends, ("pair", 1) in ends)
+        return (Pair(0) in ends, Pair(1) in ends)
 
 
 @dataclass
@@ -245,9 +274,9 @@ def _term(toks, agents, body, raw):
     """An end, or ("var", letter). Makes nodes and raw links as it goes."""
     head = toks.pop(0)
     if head in ("left", "right"):
-        return ("pair", int(head == "right"))
+        return Pair(int(head == "right"))
     if head not in agents:
-        return ("var", head)
+        return _Var(head)
     agent = agents[head]
     param = toks.pop(0) if agent.param else None
     index = len(body.nodes)
@@ -257,12 +286,12 @@ def _term(toks, agents, body, raw):
             raise TableError(f"{head} needs its {agent.arity} ports in brackets")
         port = 1
         while toks[0] != ")":
-            raw.append((("new", index, port), _term(toks, agents, body, raw)))
+            raw.append((New(index, port), _term(toks, agents, body, raw)))
             port += 1
         toks.pop(0)
         if port != agent.arity + 1:
             raise TableError(f"{head} has {agent.arity} auxiliary ports")
-    return ("new", index, 0)
+    return New(index, 0)
 
 
 def _body(text, agents, rule):
@@ -286,17 +315,17 @@ def _body(text, agents, rule):
         if toks and toks.pop(0) != ";":
             raise TableError("expected ;")
     bound = set(rule.left.aux + rule.right.aux)
-    raw = [tuple(("ext", e[1]) if e[0] == "var" and e[1] in bound else e for e in pair) for pair in raw]
+    raw = [tuple(Ext(e.letter) if isinstance(e, _Var) and e.letter in bound else e for e in pair) for pair in raw]
     # A new wire has two ends: join what they are joined to.
     while True:
-        fresh = next((e for pair in raw for e in pair if e[0] == "var"), None)
+        fresh = next((e for pair in raw for e in pair if isinstance(e, _Var)), None)
         if fresh is None:
             break
         uses = [i for i, pair in enumerate(raw) if fresh in pair]
         if len(uses) == 1 and raw[uses[0]][0] == raw[uses[0]][1]:
-            raise TableError(f"wire {fresh[1]} is joined to itself")
+            raise TableError(f"wire {fresh.letter} is joined to itself")
         if len(uses) != 2:
-            raise TableError(f"new wire {fresh[1]} has {len(uses)} ends, not two")
+            raise TableError(f"new wire {fresh.letter} has {len(uses)} ends, not two")
         i, j = uses
         other = lambda pair: pair[1] if pair[0] == fresh else pair[0]
         joined = (other(raw[i]), other(raw[j]))
@@ -314,6 +343,7 @@ class System:
 
     def __post_init__(self):
         self.signed = any(a.signs is not None for a in self.agents.values())
+        self.duplicators = tuple(a.name for a in self.agents.values() if a.duplicator)
         self._by_pair = {}
         for r in self.rules:
             self._by_pair.setdefault((r.left.agent, r.right.agent), []).append((r, False))
@@ -338,13 +368,16 @@ class System:
                 if word == "agent":
                     parts = rest.split()
                     param = None
+                    duplicator = "duplicator" in parts
+                    if duplicator:
+                        parts.remove("duplicator")
                     if "param" in parts:
                         param = parts[parts.index("param") + 1]
                         parts = parts[:parts.index("param")]
                     if len(parts) == 2 and parts[1].isdigit():
-                        agents[parts[0]] = Agent(parts[0], int(parts[1]), None, param)
+                        agents[parts[0]] = Agent(parts[0], int(parts[1]), None, param, duplicator)
                     elif len(parts) >= 2 and all(p in "+-" for p in parts[1:]):
-                        agents[parts[0]] = Agent(parts[0], len(parts) - 2, tuple(parts[1:]), param)
+                        agents[parts[0]] = Agent(parts[0], len(parts) - 2, tuple(parts[1:]), param, duplicator)
                     else:
                         raise TableError("agent NAME, then a number of auxiliary ports or a sign for each port")
                 elif word == "rule":
@@ -399,12 +432,18 @@ class System:
         a net whose wires each join an output to an input, the only principal ports that
         can meet are a consumer's and a value's, and each such pair has a rule.
 
-        Not checked: that the system terminates, or that a rule is the one intended.
+        A duplicator has signs ``- + +``.
+
+        Not checked: that the system terminates, that a rule is the one intended, or that
+        a duplicator's rules really copy.
         """
         problems = []
         agents = self.agents
         if self.signed and any(a.signs is None for a in agents.values()):
             return ["some agents have signs and some do not"]
+        for a in agents.values():
+            if a.duplicator and a.signs != ("-", "+", "+"):
+                problems.append(f"agent {a.name}: a duplicator has signs - + +")
         flip = {"+": "-", "-": "+"}
         groups = {}
         for r in self.rules:
@@ -460,17 +499,17 @@ class System:
                     problems.append(f"{where}: {name} is given a parameter it does not take, or lacks one")
                 elif param is not None and not known(param):
                     problems.append(f"{where}: {param} is not a parameter in hand")
-            used = [e[1] for link in body.links for e in link if e[0] == "ext"]
+            used = [e.letter for link in body.links for e in link if isinstance(e, Ext)]
             for letter in letters:
                 n = used.count(letter) + peeked.count(letter)
                 kept = (letter in r.left.aux and body.keeps[0]) or (letter in r.right.aux and body.keeps[1])
                 if n != (0 if kept else 1):
                     problems.append(f"{where}: port {letter} is used {n} times, not {'at all (its node is kept)' if kept else 'once'}")
-            ends = [e for link in body.links for e in link if e[0] == "new"]
+            ends = [e for link in body.links for e in link if isinstance(e, New)]
             for index, (name, _) in enumerate(body.nodes):
                 for port in range(agents[name].arity + 1):
-                    if ends.count(("new", index, port)) != 1:
-                        problems.append(f"{where}: port {port} of the new {name} is joined {ends.count(('new', index, port))} times")
+                    if ends.count(New(index, port)) != 1:
+                        problems.append(f"{where}: port {port} of the new {name} is joined {ends.count(New(index, port))} times")
             if self.signed:
                 outside = {}
                 for side, agent in ((r.left, left), (r.right, right)):
@@ -478,11 +517,11 @@ class System:
                         outside[letter] = flip[sign]
 
                 def sign(end):
-                    if end[0] == "ext":
-                        return outside[end[1]]
-                    if end[0] == "pair":
-                        return (left, right)[end[1]].signs[0]
-                    return agents[body.nodes[end[1]][0]].signs[end[2]]
+                    if isinstance(end, Ext):
+                        return outside[end.letter]
+                    if isinstance(end, Pair):
+                        return (left, right)[end.side].signs[0]
+                    return agents[body.nodes[end.node][0]].signs[end.port]
 
                 for a, b in body.links:
                     if sign(a) == sign(b):

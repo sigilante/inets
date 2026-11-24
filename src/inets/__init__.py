@@ -17,9 +17,12 @@ of Vine's IVM, and :mod:`inets.ivy` for Ivy text.
 """
 from .errors import Error, IvyError, Stuck, TableError, TermError
 from .net import Host, Library, Net, Port, Result
-from .system import Agent, Rule, System, bundled
+from .system import (Agent, Call, Compare, Expand, Ext, New, Otherwise, Pair, Peek, Rewrite, Rule,
+                     Side, System, Test, bundled)
 
-__version__ = "0.1.2"
+__version__ = "0.1.3"
 
 __all__ = ["System", "Agent", "Rule", "bundled", "Net", "Port", "Result", "Host", "Library",
+           "Side", "Rewrite", "Ext", "New", "Pair", "Expand", "Call",
+           "Compare", "Test", "Peek", "Otherwise",
            "Error", "TableError", "IvyError", "TermError", "Stuck"]

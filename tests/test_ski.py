@@ -29,7 +29,7 @@ def test_one_term_three_ends():
     assert need.result.active_left > 0          # Ω is still there, unreduced
     every = ski.run(term, schedule="rounds", max_interactions=500)
     assert every.result.reason == "interactions" and every.term is None
-    lazy = ski.run(term, schedule="lazy")
+    lazy = ski.run(term, table="lazy", schedule="rounds")
     assert (ski.show(lazy.term), lazy.result.reason, lazy.result.active_left) == ("I", "normal", 0)
 
 
@@ -46,7 +46,7 @@ def test_shared_work_is_done_once_by_need_and_twice_by_name():
     tree_steps = ski.tree_normal_form(ski.parse(twice))[1]
     assert ski.run(work).result.counts["contract"] == 6
     assert ski.run(twice).result.counts["contract"] == 9
-    assert ski.run(twice, schedule="lazy").result.counts["contract"] == tree_steps == 15
+    assert ski.run(twice, table="lazy", schedule="rounds").result.counts["contract"] == tree_steps == 15
 
 
 @pytest.mark.parametrize("leaves,size", [(["S", "K", "I"], 5), (["S", "K", "I", 0, 1], 4)])
@@ -69,14 +69,14 @@ def test_census(leaves, size):
             sound(swept.net)
             assert ski.run(t, schedule="rounds", max_interactions=20000).term in (nf, None)
             for direct in (False, True):
-                lazy = ski.run(t, schedule="lazy", direct=direct, max_interactions=50000)
+                lazy = ski.run(t, table="lazy", schedule="rounds", direct=direct, max_interactions=50000)
                 assert lazy.term == nf and lazy.result.counts.get("contract", 0) == steps
             main, definitions = ski.name_subterms(t)
             assert ski.unfold(main, definitions) == t
             named = ski.run(main, schedule="need", definitions=definitions, direct=True)
             assert named.term == nf and named.result.counts.get("contract", 0) == contractions
             main, definitions = ski.name_subterms(t, any_term=True)
-            named = ski.run(main, schedule="lazy", definitions=definitions, direct=True, max_interactions=50000)
+            named = ski.run(main, table="lazy", schedule="rounds", definitions=definitions, direct=True, max_interactions=50000)
             assert named.term == nf and named.result.counts.get("contract", 0) == steps
 
 
@@ -174,3 +174,35 @@ def test_unfold_handles_a_deep_term():
     assert ski.unfold(main, definitions) == deep
     main, definitions = ski.name_subterms(ski.parse("`K" * 500 + "I"))
     assert ski.run(main, schedule="rounds", definitions=definitions).result.finished
+
+
+def test_run_takes_a_table_and_a_net_class():
+    class Tally(inets.Net):
+        fired = 0
+
+        def fire(self, a, b):
+            self.fired += 1
+            return super().fire(a, b)
+
+    from importlib import resources
+    copy = inets.System.parse(resources.files("inets.systems").joinpath("ski.rules").read_text(encoding="utf-8"))
+    run = ski.run("```SII0", table=copy, net_class=Tally)
+    assert isinstance(run.net, Tally) and run.net.fired == run.result.interactions
+    assert run.result.counts == ski.run("```SII0").result.counts
+    with pytest.raises(inets.TermError):
+        ski.run("```SII0", table="lazy", schedule="need")
+
+
+def test_schedule_lazy_still_works_with_a_warning():
+    with pytest.warns(DeprecationWarning):
+        old = ski.run("``KI```SII``SII", schedule="lazy")
+    new = ski.run("``KI```SII``SII", table="lazy", schedule="rounds")
+    assert old.term == new.term == "I" and old.result.counts == new.result.counts
+
+
+def test_reduce_by_need_takes_its_options_by_name():
+    net = inets.Net(inets.bundled("ski"))
+    root = net.free()
+    net.wire(root, ski.encode(net, ski.parse("```SII0")))
+    with pytest.raises(TypeError):
+        net.reduce_by_need(root, True)

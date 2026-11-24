@@ -92,3 +92,21 @@ def test_otherwise_stands_alone():
 def test_words_after_a_rules_side_cannot_be_read():
     with pytest.raises(inets.TableError, match="unexpected"):
         System.parse("agent e 0\nrule e junk >< e\n")
+
+
+def test_a_table_declares_its_duplicators():
+    system = inets.System.parse("agent v +\nagent d - + + duplicator\nagent e -\n")
+    assert system.duplicators == ("d",)
+    assert system.agents["d"].duplicator and not system.agents["e"].duplicator
+    bad = inets.System.parse("agent v +\nagent d - - + duplicator\n")
+    assert any("duplicator" in p for p in bad.check())
+    assert inets.bundled("ski").duplicators == ("dup",)
+    assert inets.bundled("lazy").duplicators == ("dup",)
+    assert inets.bundled("combinators").duplicators == ()
+
+
+def test_the_ends_of_a_rules_body_are_classes():
+    rule = inets.bundled("combinators").rules[2]       # con >< dup: commute
+    ends = {type(e) for link in rule.body.links for e in link}
+    assert ends == {inets.Ext, inets.New}
+    assert inets.Ext("a") in [e for link in rule.body.links for e in link]

@@ -39,7 +39,8 @@ def demo():
     for schedule, title, cap in (("need", "ski table, by need: only the pairs the answer depends on", 10 ** 4),
                                  ("rounds", "ski table, every pair fired: Ω runs although K will discard it", 300),
                                  ("lazy", "lazy table, every pair fired: the demand is carried in the net, and no work is shared", 10 ** 4)):
-        run = ski.run(term, schedule=schedule, max_interactions=cap)
+        which, schedule = ("lazy", "rounds") if schedule == "lazy" else ("ski", schedule)
+        run = ski.run(term, schedule=schedule, table=which, max_interactions=cap)
         r = run.result
         answer = ski.show(run.term) if r.finished else f"none: stopped at the cap of {cap} interactions"
         print(title)
@@ -72,8 +73,9 @@ def command(args):
         if len(terms) != 1 or any(f not in ("--rounds", "--lazy", "--dot") for f in flags) or {"--rounds", "--lazy"} <= set(flags):
             print(__doc__)
             return 2
-        schedule = "rounds" if "--rounds" in flags else "lazy" if "--lazy" in flags else "need"
-        run = ski.run(terms[0], schedule=schedule)
+        which = "lazy" if "--lazy" in flags else "ski"
+        schedule = "rounds" if "--rounds" in flags or "--lazy" in flags else "need"
+        run = ski.run(terms[0], schedule=schedule, table=which)
         if "--dot" in flags:
             print(run.net.dot())
         else:

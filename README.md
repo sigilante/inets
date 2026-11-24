@@ -106,16 +106,26 @@ A table may also give each port a sign, `+` for an output and `-` for an input, 
 tables for S, K and I do:
 
 ```
-agent S2    + - -          # S x y: an output, and two inputs for x and y
-agent app   - - +          # application: (function) (argument result)
+agent S2    + - -              # S x y: an output, and two inputs for x and y
+agent app   - - +              # application: (function) (argument result)
+agent dup   - + + duplicator   # (term) (copy copy)
 
 rule app (z r) >< S2 (x y)
   => z = dup (p q); x = app (p f); y = app (q g); f = app (g r)
   count contract
 ```
 
+`duplicator` says that an agent's two outputs are each a copy of what its input is joined
+to. The rules cannot show that, so the table states it; reduction by need uses it (below).
+
 The full format, with conditions, references to named nets and calls to a host, is in the
 docstring of [`inets.system`](https://github.com/sigilante/inets/blob/master/src/inets/system.py).
+A table read in is plain data: `system.agents` maps names to `inets.Agent`s, and
+`system.rules` is a list of `inets.Rule`s, each with two `Side`s, its conditions
+(`Compare`, `Test`, `Peek`, `Otherwise`) and a body: a `Rewrite`, whose links join ends
+that are `Ext` (a port of the pair), `New` (a port of a new node) or `Pair` (the pair's own
+node, kept), or an `Expand` or a `Call`. A program that translates a table into something
+else reads these.
 
 ```python
 import inets
@@ -153,7 +163,8 @@ table:
 - a pair whose rules have conditions that cannot be seen to cover every case (end with
   `otherwise`);
 - a test of a neighbour on a port or of an agent that does not exist, and an `expand` of
-  an agent that has auxiliary ports.
+  an agent that has auxiliary ports;
+- a `duplicator` whose signs are not `- + +`.
 
 For a table without signs, also: a pair of agents with no rule.
 
@@ -189,12 +200,13 @@ a long run does not fill up, it sweeps the net when it passes 20,000 nodes, and 
 time the net reaches twice the size the last sweep left (`sweep_above` sets the figure):
 `net.sweep(ports)` keeps what those ports can reach and removes the rest. Sweeping needs a
 table with exactly one eraser, an agent whose only port is an input; without one,
-`net.sweep` raises an error and reduction by need goes on unswept. `collapse=("dup",)`, to
-either method, names agents that are duplicators: a kept one that has lost one of its
-copies is removed and its input joined to the other copy. The table cannot say which
-agents copy, so the caller does; `inets.ski.run` does it for the `ski` table. It changes
-the number of copies, never the number of contractions. `deep=False` stops
-reduction by need as soon as the value wanted is a value, its own inputs not asked for.
+`net.sweep` raises an error and reduction by need goes on unswept. A sweep also removes a
+kept duplicator (an agent the table declares `duplicator`) that has lost one of its
+copies, and joins its input to the other copy; this changes the number of copies, never
+the number of contractions. `collapse=()`, to either method, turns that off, and
+`collapse=("dup",)` names the duplicators instead of taking the table's word. The options
+of `reduce_by_need` are given by name. `deep=False` stops reduction by need as soon as the
+value wanted is a value, without asking for that value's own inputs.
 
 ## The tables that come with it
 
@@ -214,7 +226,13 @@ left as Graphviz text):
 from inets import ski
 run = ski.run("```SII0")                   # S I I 0, by need
 ski.show(run.term), run.result.counts       # ('`00', {'collect': 3, 'contract': 3, 'copy': 1})
+ski.run("``KI```SII``SII", table="lazy", schedule="rounds").term    # 'I'
 ```
+
+`ski.run` takes `table` (`"ski"`, `"lazy"`, or a `System` of the same agents) and
+`schedule` (`"need"` or `"rounds"`); the `lazy` table carries its own demand and is
+reduced in rounds. `net_class` gives a subclass of `inets.Net` to build, one that keeps
+tallies of its own, say.
 
 [`inets.ivm`](https://github.com/sigilante/inets/blob/master/src/inets/ivm.py) runs programs written in Ivy, Vine's text for nets, by the
 `ivm` table (`inets run ivm FILE.iv`). For the thirteen programs in `tests/ivm`, the tests
@@ -249,6 +267,10 @@ The pictures need Graphviz's `dot`.
 pytest                              # about ten seconds; 13 tests are skipped unless IVM is set
 IVM=/path/to/ivm pytest             # also compares with an ivm binary directly
 ```
+
+On every push to `master` and every pull request, GitHub Actions runs these, the kernel's
+tests and the doctests on Python 3.10 and 3.13, builds both packages, and runs the tests
+of the source archive from the archive itself (`.github/workflows/tests.yml`).
 
 The tests cover the checks on the bundled tables and on deliberately broken ones; small
 nets of the combinators, with one net reduced in every order; the Ivy reader; the command

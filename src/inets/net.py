@@ -30,7 +30,7 @@ from dataclasses import dataclass, field
 from typing import NamedTuple
 
 from .errors import Error, Stuck
-from .system import Call, Compare, Expand, Otherwise, Test
+from .system import Call, Compare, Expand, Ext, Otherwise, Pair, Test
 
 _FREE = "@"   # the kind of the stand-in node behind a free port
 
@@ -264,18 +264,18 @@ class Net:
         made = [self.add_node(name, None if p is None else self._value(p, env)) for name, p in body.nodes]
 
         def port(end):
-            if end[0] == "ext":
-                return outside[end[1]]
-            if end[0] == "pair":
-                return Port(pair[end[1]], 0)
-            return Port(made[end[1]], end[2])
+            if isinstance(end, Ext):
+                return outside[end.letter]
+            if isinstance(end, Pair):
+                return Port(pair[end.side], 0)
+            return Port(made[end.node], end.port)
 
         links = list(body.links)
         while links:
             x, y = links.pop()
             for _ in range(2):
-                while x[0] == "ext" and x[1] in inner:
-                    other = ("ext", inner[x[1]])
+                while isinstance(x, Ext) and x.letter in inner:
+                    other = Ext(inner[x.letter])
                     k = next((k for k, l in enumerate(links) if other in l), None)
                     if k is None:      # the wire closes on itself: a loop with nothing on it
                         x = None
@@ -355,7 +355,7 @@ class Net:
     def _is_value(self, n):
         return self.kind[n] != _FREE and self.system.agents[self.kind[n]].is_value
 
-    def reduce_by_need(self, port, deep=True, sweep_above=20000, max_interactions=10 ** 6, collapse=()):
+    def reduce_by_need(self, port, *, deep=True, sweep_above=20000, max_interactions=10 ** 6, collapse=None):
         """Reduces only what is needed for the term whose output is joined to the input
         ``port`` (usually a free port) to be a value; with ``deep``, for that value's
         inputs to be values too, and theirs, from the first. The table must have signs.
@@ -368,7 +368,8 @@ class Net:
         and again each time it reaches twice the size it was left at. 0 sweeps after every
         interaction, None never. Sweeping needs exactly one eraser in the table and is
         skipped, silently, without one. ``collapse`` is passed to each sweep, and its
-        names are checked only when a sweep happens.
+        names are checked only when a sweep happens. Every option after ``port`` is
+        given by name.
 
         Raises :class:`~inets.errors.Stuck` if the value wanted depends on a free port,
         waits on itself, or lies beyond a wire that joins two inputs (a net built against
@@ -429,25 +430,25 @@ class Net:
                 todo.extend(Port(v, i) for i in range(len(signs) - 1, 0, -1) if signs[i] == "-")
         return self._result("wanted", start, before)
 
-    def sweep(self, roots, collapse=()):
+    def sweep(self, roots, collapse=None):
         """Keeps the nodes that own the ports ``roots`` (usually free ports) and every
         node that can be reached from those by following inputs, and removes the rest.
         An output of a kept node that a removed node held is given to an eraser.
         The table must have signs and exactly one eraser (an agent whose only port is an
         input).
 
-        ``collapse`` names duplicators: agents with an input for a principal port and two
-        outputs, each a copy of what the input is joined to. A kept node of one of these
-        that has lost one copy is removed instead, and its input joined to the copy that
-        is left: copying and discarding a copy leaves the term as it was. This is a
-        property of the agent, which the table cannot state, so the caller says which
-        agents have it. ``()`` or None collapses nothing.
+        A kept duplicator (an agent the table declares ``duplicator``: its two outputs are
+        each a copy of what its input is joined to) that has lost one copy is removed
+        instead, and its input joined to the copy that is left: copying and discarding a
+        copy leaves the term as it was. One that has lost both is replaced by an eraser.
+        ``collapse`` names the agents treated so: None (the default) for those the table
+        declares, ``()`` for none, or names of agents with signs ``- + +``.
 
         Raises :class:`~inets.errors.Error` if a root is not wired to anything."""
         if not self._eraser:
             raise Error("sweeping needs a table with signs and exactly one eraser")
         if collapse is None:
-            collapse = ()
+            collapse = self.system.duplicators
         elif isinstance(collapse, str):
             collapse = (collapse,)
         roots = [Port(*r) for r in roots]

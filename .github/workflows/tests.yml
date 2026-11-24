@@ -1,0 +1,45 @@
+name: tests
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ["3.10", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install both packages from this checkout
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e '.[test]' -e 'kernel[test]'
+      # The kernel's notebook tests skip themselves if these are missing; here they must run.
+      - run: python -c "import nbclient, nbformat"
+      - run: python -m pytest -q tests
+      - run: python -m pytest -q kernel/tests
+      - name: The doctests
+        run: python -c "import doctest, sys, inets, inets.ski, inets.ivm; sys.exit(any(doctest.testmod(m).failed for m in (inets, inets.ski, inets.ivm)))"
+
+  archive:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install build twine pytest
+      - run: python -m build && python -m build kernel
+      - run: python -m twine check dist/* kernel/dist/*
+      # The source archive's own tests run from the unpacked archive, against its wheel.
+      - name: Test the source archive
+        run: |
+          python -m pip install dist/*.whl
+          mkdir unpacked && tar xzf dist/inets-*.tar.gz -C unpacked
+          cd unpacked/inets-* && python -m pytest -q -p no:cacheprovider --import-mode=importlib tests

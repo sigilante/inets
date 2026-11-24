@@ -315,7 +315,8 @@ class Session:
         terms = [w for w in words if not w.startswith("--")]
         if len(terms) != 1 or any(f not in ("--rounds", "--lazy") for f in flags) or len(flags) > 1:
             raise CellError("%ski TERM [--rounds | --lazy]")
-        schedule = "rounds" if "--rounds" in flags else "lazy" if "--lazy" in flags else "need"
-        run = ski.run(terms[0], schedule=schedule, max_interactions=self.cap)
+        table = "lazy" if "--lazy" in flags else "ski"
+        schedule = "rounds" if "--rounds" in flags or "--lazy" in flags else "need"
+        run = ski.run(terms[0], schedule=schedule, table=table, max_interactions=self.cap)
         answer = ski.show(run.term) if run.result.finished else "no answer: the cap was reached"
         return [Output("text", f"{answer}\n{self.says(run.result)}")]

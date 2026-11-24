@@ -120,7 +120,7 @@ def test_sweeping_after_every_interaction_really_does():
     class Counting(inets.Net):
         swept = 0
 
-        def sweep(self, roots, collapse=()):
+        def sweep(self, roots, collapse=None):
             self.swept += 1
             super().sweep(roots, collapse)
 
@@ -194,10 +194,15 @@ def test_a_port_wired_to_nothing_is_an_error_not_a_key_error():
         net.reduce_by_need(loose)
 
 
-def test_collapse_none_means_no_collapse():
-    from inets import ski
-
-    net = inets.Net(inets.bundled("ski"))
-    root = net.free()
-    net.wire(root, ski.encode(net, ski.parse("``SII"), False))
-    net.sweep([root], collapse=None)
+def test_collapse_none_means_the_tables_duplicators():
+    system = inets.bundled("ski")
+    assert system.duplicators == ("dup",)
+    for collapse, left in ((None, 0), ((), 1)):
+        net = inets.Net(system)
+        root, x = net.free(), net.free()
+        d = net.add_node("dup")
+        net.wire((d, 0), x)
+        net.wire((d, 1), root)
+        net.wire((d, 2), (net.add_node("era"), 0))
+        net.sweep([root, x], collapse)
+        assert list(net.kind.values()).count("dup") == left

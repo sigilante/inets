@@ -12,7 +12,7 @@ stand for themselves; a digit is an atom.
     'I'
     >>> ski.run("``KI```SII``SII", schedule="rounds", max_interactions=1000).result.reason
     'interactions'
-    >>> ski.show(ski.run("``KI```SII``SII", schedule="lazy").term)
+    >>> ski.show(ski.run("``KI```SII``SII", table="lazy", schedule="rounds").term)
     'I'
 
 Two tables are used (:func:`inets.bundled`):
@@ -22,15 +22,18 @@ Two tables are used (:func:`inets.bundled`):
   need (``schedule="need"``) a cursor fires only what the answer depends on, and shares
   work.
 - ``lazy``: the demand is carried in the net by agents of its own, so every pair can be
-  fired (``schedule="lazy"``) and only wanted work is done; but no work is shared.
+  fired (``table="lazy", schedule="rounds"``) and only wanted work is done; but no work
+  is shared.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
 
+import warnings
+
 from .errors import TermError
 from .net import Library, Net, Result
-from .system import bundled
+from .system import System, bundled
 
 ARITY = {"S": 3, "K": 2, "I": 1}
 PARTIAL = {("S", 1): "S1", ("S", 2): "S2", ("K", 1): "K1"}
@@ -359,41 +362,61 @@ class Run:
 
 
 def run(term, schedule="need", definitions=None, direct=False, deep=True, sweep_above=20000,
-        max_interactions=10 ** 6):
+        max_interactions=10 ** 6, *, table=None, net_class=Net):
     """Reduces a term (a term, or its prefix form) and reads the result back.
 
-    ``schedule`` is ``"need"`` (the ``ski`` table, by need), ``"rounds"`` (the ``ski``
-    table, every pair fired) or ``"lazy"`` (the ``lazy`` table, every pair fired, with a
-    demand for the normal form placed at the root).
+    ``table`` is ``"ski"`` (the default), ``"lazy"``, or a :class:`~inets.System` of the
+    same agents (a copy of either table, say). A table with an ``nf`` agent carries its
+    own demand, as ``lazy`` does: a demand for the normal form is placed at the root, and
+    it is reduced in rounds. ``schedule`` is ``"need"`` (by need,
+    :meth:`inets.Net.reduce_by_need`) or ``"rounds"`` (every pair fired,
+    :meth:`inets.Net.reduce_in_rounds`). ``schedule="lazy"`` is an older way to say
+    ``table="lazy", schedule="rounds"`` and gives a ``DeprecationWarning``.
 
     ``definitions`` are the named terms that references in ``term`` name
     (:func:`name_subterms`). With ``direct`` a combinator short of arguments is built as
-    the value it is. ``deep`` and ``sweep_above`` are for reduction by need
-    (:meth:`inets.Net.reduce_by_need`): with ``deep`` false it stops when the head is a
-    value. By need, each sweep removes a duplicator that has lost one of its copies
-    (``collapse`` in :meth:`inets.Net.sweep`).
+    the value it is. ``deep`` and ``sweep_above`` are for reduction by need: with ``deep``
+    false it stops when the head is a value. By need, each sweep removes a duplicator
+    that has lost one of its copies (:meth:`inets.Net.sweep`). ``net_class`` is the class
+    of the net built, a subclass of :class:`inets.Net` that keeps tallies, say.
     """
-    if schedule not in ("need", "rounds", "lazy"):
-        raise TermError('schedule is "need", "rounds" or "lazy"')
+    if schedule == "lazy":
+        warnings.warn('schedule="lazy" is now table="lazy", schedule="rounds"', DeprecationWarning, stacklevel=2)
+        if table not in (None, "lazy"):
+            raise TermError('schedule="lazy" names the lazy table; give table= and schedule="rounds" instead')
+        table, schedule = "lazy", "rounds"
+    if schedule not in ("need", "rounds"):
+        raise TermError('schedule is "need" or "rounds"')
+    if table is None:
+        table = "ski"
+    if isinstance(table, str):
+        if table not in ("ski", "lazy"):
+            raise TermError('table is "ski", "lazy" or a System')
+        table = _system(table)
+    elif not isinstance(table, System):
+        raise TermError('table is "ski", "lazy" or a System')
+    demand = "nf" in table.agents
+    if demand and schedule != "rounds":
+        raise TermError('a table that carries its own demand (with an nf agent) is reduced with schedule="rounds"')
     if isinstance(term, str):
         term = parse(term)
     definitions = definitions or {}
-    if schedule != "lazy":
+    if not demand:
         for k, t in definitions.items():
             if not is_normal(t):
                 raise TermError(f"the term named {k} is not in normal form: with the ski table only normal forms may be named")
     host = Library({k: (lambda net, t=t: encode(net, t, direct)) for k, t in definitions.items()})
-    net = Net(_system("lazy" if schedule == "lazy" else "ski"), host)
+    net = net_class(table, host)
     root = net.free()
     out = encode(net, term, direct)
-    if schedule == "lazy":
+    if demand:
         ask = net.add_node("nf")
         net.wire((ask, 0), out)
         net.wire(root, (ask, 1))
     else:
         net.wire(root, out)
     if schedule == "need":
-        result = net.reduce_by_need(root, deep, sweep_above, max_interactions, collapse=("dup",))
+        result = net.reduce_by_need(root, deep=deep, sweep_above=sweep_above, max_interactions=max_interactions)
     else:
         result = net.reduce_in_rounds(max_interactions)
     return Run(net, result, read_back(net, root, definitions) if result.finished else None, root)
