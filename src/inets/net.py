@@ -437,6 +437,8 @@ class Net:
         agents have it."""
         if not self._eraser:
             raise Error("sweeping needs a table with signs and exactly one eraser")
+        if isinstance(collapse, str):
+            collapse = (collapse,)
         for name in collapse:
             agent = self.system.agents.get(name)
             if agent is None or agent.signs != ("-", "+", "+"):

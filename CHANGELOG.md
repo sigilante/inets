@@ -7,8 +7,10 @@
   joined to the other. `inets.ski.run` collapses `dup` by need. Copies fall; contractions
   and answers do not change.
 - `inets.ski.encode` built an atom's arguments as a stuck application even without
-  `direct`, so `collect` counted one fewer than the docstring implies. They are now built
-  as applications unless `direct` is given. No contraction count changes.
+  `direct`. They are now built as applications unless `direct` is given, as the docstring
+  says. Answers and contraction counts do not change; other counts of terms that apply an
+  atom do: one more `collect` for each such application, and with the `lazy` table more
+  `demand` and `arrive` as well.
 
 ## 0.1.1
 

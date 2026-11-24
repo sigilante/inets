@@ -128,3 +128,41 @@ def test_collapsing_changes_copies_and_never_contractions(text):
 def test_an_atoms_arguments_are_built_directly_only_with_direct():
     assert ski.run("`01", deep=False).result.counts == {"collect": 1}
     assert ski.run("`01", deep=False, direct=True).result.counts == {}
+
+
+def _chain(length, lost_by_eraser):
+    """S copied through `length` duplicators in a row, each losing its second copy."""
+    net = inets.Net(inets.bundled("ski"))
+    root = net.free()
+    source = net.make("S")
+    for _ in range(length):
+        d = net.add_node("dup")
+        net.wire((d, 0), source)
+        if lost_by_eraser:
+            net.wire((d, 2), net.make("era"))
+        else:                                        # held by a node the root cannot reach
+            net.wire((d, 2), net.make("app", net.make("K"), net.free()))
+        source = (d, 1)
+    net.wire(root, source)
+    return net, root
+
+
+@pytest.mark.parametrize("length", [1, 2, 300])
+@pytest.mark.parametrize("by_eraser", [True, False])
+def test_a_chain_of_duplicators_collapses(length, by_eraser):
+    net, root = _chain(length, by_eraser)
+    net.sweep([root], "dup")                         # a bare name is accepted
+    assert "dup" not in net.kind.values() and ski.read_back(net, root) == "S"
+    sound(net)
+
+
+def test_a_duplicator_that_lost_both_copies_leaves_an_eraser():
+    net = inets.Net(inets.bundled("ski"))
+    d = net.add_node("dup")
+    s = net.make("S")
+    net.wire((d, 0), s)
+    net.wire((d, 1), net.make("era"))
+    net.wire((d, 2), net.make("era"))
+    net.sweep([s], ("dup",))                         # S itself is kept, as a root's node
+    assert sorted(net.kind.values()) == ["S", "era"]
+    sound(net)
