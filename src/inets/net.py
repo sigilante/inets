@@ -445,13 +445,16 @@ class Net:
 
     # --- looking ----------------------------------------------------------------------
 
-    def dot(self):
+    def dot(self, names=None):
         """The net as Graphviz text: a box for each node, a point for each free port, a
         thick red edge for each active pair, and port numbers at the ends of each wire
-        (0 is the principal port)."""
+        (0 is the principal port). ``names`` may map free ports to labels to show."""
+        names = {Port(*p).node: label for p, label in (names or {}).items()}
         out = ["graph net {", '  node [shape=box, fontname="Helvetica"];']
         for n, kind in sorted(self.kind.items()):
-            if kind == _FREE:
+            if kind == _FREE and n in names:
+                out.append(f'  n{n} [label="{names[n]}", shape=plaintext];')
+            elif kind == _FREE:
                 out.append(f'  n{n} [label="", shape=point];')
             else:
                 out.append(f'  n{n} [label="{kind}{" " + str(self.param[n]) if n in self.param else ""}"];')

@@ -208,6 +208,23 @@ branch, `print_char`, and the IO value's split and merge) and stops at any other
 
 `inets --help` lists the commands.
 
+## In a notebook
+
+[`kernel/`](kernel) is a second small package, `inets-kernel`: a Jupyter kernel in which a
+cell is a table, a net, or a command. A net is written as the right-hand side of a rule
+is, and is drawn before and after it is reduced, with the active pairs marked.
+
+```sh
+pip install inets-kernel
+python -m inets_kernel.install --sys-prefix     # or --user
+jupyter lab notebooks/
+```
+
+[`notebooks/`](notebooks) has three to start from: the three rules of the combinators;
+building a system of your own, for adding numbers; and one term reaching three ends. They
+are written and run by `notebooks/make.py`, so what they show is what the kernel gives.
+The pictures need Graphviz's `dot`.
+
 ## Tests
 
 ```sh
