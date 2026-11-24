@@ -1,10 +1,9 @@
 # inets
 
-Interaction nets in Python: declare an interaction system as a table of rules, check the
-table, and reduce nets by it under a schedule you choose.
+Interaction nets in Python.  Inets were devised by [Yves Lafont](https://dl.acm.org/doi/pdf/10.1145/96709.96718) as a generalization of Jean-Yves Girard’s proof nets of linear logic.  This package declares an interaction system as a table of rules, checks the
+table, and reduces nets by it under a chosen schedule.
 
-It is a reference and a teaching tool. It is small, it has no dependencies, and it is not
-fast. What it says about a system rests on checks of the table and on tests, not on proof.
+`inets` is a reference and teaching tool.  It is small but slow and has no dependencies.
 
 ## Install
 
