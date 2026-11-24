@@ -107,9 +107,13 @@ print(result.reason, result.counts)        # normal {'commute': 1, 'erase': 2}
 print(net.dot())                           # the net as Graphviz text
 ```
 
-`net.make(agent, *ports)` makes a node, joins its auxiliary ports to the ports given, and
-returns its principal port; `net.wire` joins two ports. A port is a node's number and an
-index, 0 for the principal port.
+`net.make(agent, *ports, param=value)` makes a node, joins its auxiliary ports to the ports
+given, and returns its principal port; `net.wire` joins two ports. A port is a node's
+number and an index, 0 for the principal port. To read a result, follow a free port:
+`net.link[port]` is the port it is joined to, and `net.kind[node]` and `net.param[node]`
+say what is there. A table whose rules expand named nets or call functions needs a host:
+`inets.Net(system, inets.Library({name: build}))` supplies named nets, and a subclass of
+`inets.Host` supplies functions.
 
 ## What checking a table means
 
@@ -117,12 +121,15 @@ index, 0 for the principal port.
 table:
 
 - a rule with no body or no count, or one that uses a parameter or a port it does not
-  have;
+  have, gives an agent a parameter it does not take, or names two ports with one letter;
 - a rule whose right-hand side does not use every auxiliary port of its pair exactly once,
   or leaves a port of a new node unjoined: the net it makes must have the pair's free
   ports;
 - a rule that can never apply, because an earlier one for the same pair always does;
-- several rules for one pair whose conditions cannot be seen to cover every case.
+- a pair whose rules have conditions that cannot be seen to cover every case (end with
+  `otherwise`);
+- a test of a neighbour on a port or of an agent that does not exist, and an `expand` of
+  an agent that has auxiliary ports.
 
 For a table without signs, also: a pair of agents with no rule.
 
@@ -149,12 +156,17 @@ calls the host, or keeps one of its pair. The theorem about order is for local r
 Each takes `max_interactions` and stops with `interactions` if it gets there; a run in
 rounds looks at the cap between rounds, so it may pass it by less than a round. The number
 of rounds is the net's span: the longest chain of interactions that must follow one
-another. A result's counts are for that run.
+another. A result's counts are for that run. Any schedule raises `inets.Stuck` at a pair
+no rule applies to; reduction by need raises it too if the value wanted depends on a free
+port.
 
 Reduction by need never fires the pairs that would erase what is no longer wanted. So that
 a long run does not fill up, it sweeps the net when it passes 20,000 nodes, and again each
-time the net doubles: `net.sweep(ports)` keeps what those ports can reach and removes the
-rest. Sweeping needs an eraser in the table.
+time the net reaches twice the size the last sweep left (`sweep_above` sets the figure):
+`net.sweep(ports)` keeps what those ports can reach and removes the rest. Sweeping needs a
+table with exactly one eraser, an agent whose only port is an input; without one,
+`net.sweep` raises an error and reduction by need goes on unswept. `deep=False` stops
+reduction by need as soon as the value wanted is a value, its own inputs not asked for.
 
 ## The tables that come with it
 
@@ -167,7 +179,8 @@ rest. Sweeping needs an eraser in the table.
 
 [`inets.ski`](src/inets/ski.py) reads and writes terms of S, K and I, builds them as nets,
 names their subterms as references to nets, and reduces them in the three ways of the demo
-(`inets run ski TERM`, with `--rounds` or `--lazy`):
+(`inets run ski TERM`, with `--rounds` or `--lazy`, and `--dot` to print the net that is
+left as Graphviz text):
 
 ```python
 from inets import ski
@@ -181,7 +194,7 @@ hold it, in three orders of reduction, to the output, the six interaction counts
 error flags that `ivm run` gave when they were recorded; with `IVM` set they compare
 output and counts with the binary directly. Six programs compiled from Vine's own
 examples, and the IVM's example `hi.iv`, agreed in the same way in a run that is not kept
-here. It supplies twenty extrinsic functions (N32 arithmetic and comparison, the IVM's
+here and cannot be repeated from this repository. It supplies twenty extrinsic functions (N32 arithmetic and comparison, the IVM's
 branch, `print_char`, and the IO value's split and merge) and stops at any other.
 
 [`inets.ivy`](src/inets/ivy.py) reads Ivy text for any system.
@@ -206,8 +219,8 @@ contractions as rewriting takes steps and by need in no more. With every pair fi
 
 ## What it is not
 
-- **Fast.** A net is Python dictionaries: roughly a hundred thousand interactions a second
-  on a laptop.
+- **Fast.** A net is Python dictionaries: roughly a hundred thousand interactions a
+  second, measured by hand on one laptop.
 - **A language.** There is a table format and a Python interface, and nothing above them.
 - **A proof.** Checks and tests.
 - **Complete for the IVM.** Memory, depth, workers and most extrinsic functions are left

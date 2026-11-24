@@ -4,7 +4,8 @@
     inets rules TABLE                 list a table's rules, marking those that are not local
     inets run ski TERM [--rounds | --lazy] [--dot]
                                       reduce a term of S, K, I (prefix form): by need, or
-                                      with every pair fired, by the ski or the lazy table
+                                      with every pair fired, by the ski or the lazy table;
+                                      --dot prints the net left, as Graphviz text
     inets run ivm FILE.iv             run a program of Vine's IVM
     inets demo                        one term, K I Ω, reduced three ways
 
@@ -64,7 +65,7 @@ def command(args):
     if verb == "run" and len(args) >= 2 and args[0] == "ski":
         flags = [a for a in args[1:] if a.startswith("--")]
         terms = [a for a in args[1:] if not a.startswith("--")]
-        if len(terms) != 1 or any(f not in ("--rounds", "--lazy", "--dot") for f in flags):
+        if len(terms) != 1 or any(f not in ("--rounds", "--lazy", "--dot") for f in flags) or {"--rounds", "--lazy"} <= set(flags):
             print(__doc__)
             return 2
         schedule = "rounds" if "--rounds" in flags else "lazy" if "--lazy" in flags else "need"
@@ -94,7 +95,7 @@ def command(args):
 def main(argv=None):
     try:
         return command(list(sys.argv[1:] if argv is None else argv))
-    except (Error, OSError) as e:
+    except (Error, OSError, UnicodeError) as e:
         print(f"inets: {e}", file=sys.stderr)
         return 2
 

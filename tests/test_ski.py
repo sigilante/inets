@@ -54,7 +54,7 @@ def test_census(leaves, size):
     """Every term up to a size that has a normal form by tree reduction within its caps.
     By need and by the lazy table reach it (the lazy table in exactly as many contractions
     as tree reduction takes steps, by need in no more); with every pair fired the ski
-    table reaches it or runs into the cap. Sweeping after every interaction, building
+    table reaches it or runs into the cap. Sweeping after every interaction (`sweep_above=0`), building
     values directly and naming subterms change neither the answer nor the contractions."""
     for n in range(1, size + 1):
         for t in terms(leaves, n):

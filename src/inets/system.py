@@ -214,6 +214,8 @@ def _side(toks, agents):
         toks.pop(0)
     if len(aux) != agent.arity:
         raise TableError(f"{name} has {agent.arity} auxiliary ports")
+    if toks:
+        raise TableError(f"unexpected {toks[0]} after {name}")
     return Side(name, param, tuple(aux))
 
 
@@ -387,7 +389,7 @@ class System:
         pair of agents: no rule comes after one that always applies; and where the last
         rule has a condition, the conditions must be seen to leave no case out, which
         means two rules that are each other's opposite (`x = y` and `x != y`, or `x.name`
-        and `not x.name`).
+        and `not x.name`); `otherwise` stands alone.
 
         In a table without signs: every pair of agents has a rule.
 
@@ -499,7 +501,10 @@ class System:
                 elif not group:
                     problems.append(f"no rule for {a} >< {b}")
                 if group:
-                    always = lambda r: not r.when or isinstance(r.when[-1], Otherwise) and len(r.when) == 1
+                    always = lambda r: not r.when or (len(r.when) == 1 and isinstance(r.when[0], Otherwise))
+                    for r in group:
+                        if len(r.when) > 1 and any(isinstance(c, Otherwise) for c in r.when):
+                            problems.append(f"line {r.line}: `otherwise` stands alone, not with other conditions")
                     for k, r in enumerate(group[:-1]):
                         if always(r):
                             problems.append(f"line {group[k + 1].line}: this rule can never apply: the one at line {r.line} always does")
@@ -515,7 +520,7 @@ def _complete(group):
     out: the last rule is unconditional or ends in `otherwise`, or two rules have single
     conditions that are each other's opposite."""
     last = group[-1].when
-    if not last or isinstance(last[-1], Otherwise):
+    if not last or (len(last) == 1 and isinstance(last[0], Otherwise)):
         return True
     single = {r.when[0] for r in group if len(r.when) == 1}
     for c in single:

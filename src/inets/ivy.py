@@ -57,7 +57,10 @@ def read(text):
         pos += 1
         payload, names = None, []
         if pos < len(toks) and toks[pos].startswith("#"):
-            payload = int(toks[pos][1:], 0)
+            try:
+                payload = int(toks[pos][1:], 0)
+            except ValueError:
+                raise IvyError(f"{toks[pos]} is not a number") from None
             pos += 1
         if pos < len(toks) and toks[pos] == "[":
             pos += 1

@@ -82,3 +82,13 @@ def test_rules_that_are_not_local_are_marked():
     marks = [m for r in inets.bundled("ivm").rules for m in r.not_local]
     assert sorted(marks) == sorted(["looks at a neighbour"] + ["calls the host"] * 2 + ["expands a named net"] * 3 + ["keeps a node"])
     assert all(not r.not_local for r in inets.bundled("combinators").rules)
+
+
+def test_otherwise_stands_alone():
+    s = broken("when f.split", "when f.split and otherwise", "ivm")
+    assert has(s.check(), "`otherwise` stands alone")
+
+
+def test_words_after_a_rules_side_cannot_be_read():
+    with pytest.raises(inets.TableError, match="unexpected"):
+        System.parse("agent e 0\nrule e junk >< e\n")

@@ -62,6 +62,8 @@ IO = Value("io", copy=False)
 def agent_of(tree):
     """The agent and parameter that a node of the ``ivm:`` system means."""
     path, payload, names = tree.path, tree.payload, tree.names
+    if path in ("ivm:graft", "ivm:ext:split", "ivm:ext:merge", "ivm:ext:merge:swap") and len(names) != 1:
+        raise IvyError(f"{path} takes one name in square brackets")
     if path in ("ivm:eraser", "ivm:error"):
         return "era", None
     if path == "ivm:graft":
@@ -146,7 +148,10 @@ class IvmHost(Host):
             raise Error(f"inets.ivm has no extrinsic function {function.name}")
         if function.exchanged:
             values = values[::-1]
-        result = EXTRINSICS[function.name](self, *values)
+        try:
+            result = EXTRINSICS[function.name](self, *values)
+        except TypeError:
+            raise Error(f"{function.name} was given {len(values)} values") from None
         if result is None:
             net.flags.add("ext_generic")
             result = [None] * len(ports)

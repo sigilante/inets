@@ -20,7 +20,8 @@ something this module checks. Reduction by need can stop where they do not, beca
 leaves alone the pairs nobody is waiting on. What it reaches is a normal form of the part
 of the net the wanted port can reach, not of the net.
 
-Any schedule raises :class:`~inets.errors.Stuck` at an active pair that no rule applies to.
+Any schedule raises :class:`~inets.errors.Stuck` at an active pair that no rule applies to;
+reduction by need raises it too when the value wanted depends on a free port.
 """
 from __future__ import annotations
 
@@ -230,10 +231,15 @@ class Net:
             for i, letter in enumerate(side.aux, 1):
                 outside[letter] = self.link[(n, i)]
         if isinstance(body, Call):
-            for n in (*pair, *peeked):
+            # A port of the pair may be wired to another port of the pair. The host is
+            # then given a stand-in for each, and what it joins to them is joined up.
+            gone = set(pair) | set(peeked)
+            stand_ins = {letter: self.free() for letter, p in outside.items() if p.node in gone}
+            for n in gone:
                 self._delete(n)
             self.host.call(self, self._value(body.function, env), [self._value(v, env) for v in body.values],
-                           [outside[p] for p in body.ports])
+                           [stand_ins.get(p, outside[p]) for p in body.ports])
+            self._join_stand_ins(rule, pair, outside, stand_ins)
             return rule
         # Two auxiliary ports of the pair may be joined to each other: a wire from the
         # pair back to itself. Such a wire carries on whatever the rule joins to one end
@@ -278,6 +284,26 @@ class Net:
             if x is not None:
                 self.wire(port(x), port(y))
         return rule
+
+    def _join_stand_ins(self, rule, pair, outside, stand_ins):
+        """After a host call: each stand-in took the place of a port of the pair that was
+        wired to another port of the pair. Joins what the host joined to the two ends of
+        each such wire, and removes the stand-ins."""
+        letter_at = {}
+        for side, n in zip((rule.left, rule.right), pair):
+            for i, letter in enumerate(side.aux, 1):
+                letter_at[Port(n, i)] = letter
+        for letter, stand_in in list(stand_ins.items()):
+            if stand_in.node not in self.kind:
+                continue
+            other = stand_ins.get(letter_at.get(outside[letter]))
+            mine = self.link.get(stand_in)
+            theirs = self.link.get(other) if other is not None and other.node in self.kind else None
+            self._delete(stand_in.node)
+            if other is not None and other.node in self.kind:
+                self._delete(other.node)
+            if mine is not None and theirs is not None:
+                self.wire(mine, theirs)
 
     # --- schedules --------------------------------------------------------------------
 
@@ -335,8 +361,12 @@ class Net:
 
         Reduction by need never fires the pairs that would erase what is no longer
         wanted, so when the net passes ``sweep_above`` nodes it is swept (:meth:`sweep`),
-        and again each time it doubles; 0 sweeps after every interaction, None never.
-        Sweeping needs an eraser in the table and is skipped without one.
+        and again each time it reaches twice the size it was left at. 0 sweeps after every
+        interaction, None never. Sweeping needs exactly one eraser in the table and is
+        skipped, silently, without one.
+
+        Raises :class:`~inets.errors.Stuck` if the value wanted depends on a free port,
+        and :class:`~inets.errors.Error` for a table without signs.
         """
         if not self.system.signed:
             raise Error("reduction by need needs a table with signs")
@@ -348,11 +378,12 @@ class Net:
             wanted = todo.pop()
             stack = [wanted]
             while stack:
-                if self.interactions - start >= max_interactions:
-                    return self._result("interactions", start, before)
+                capped = self.interactions - start >= max_interactions
                 at = self.link[stack[-1]]
                 n = at.node
                 if self.kind[n] in self._references and len(stack) == 1:
+                    if capped:
+                        return self._result("interactions", start, before)
                     name = self.param.get(n)
                     self._delete(n)
                     self.wire(stack[-1], self.host.expand(self, name))
@@ -368,10 +399,12 @@ class Net:
                 # must first meet a value.
                 m = self.link[Port(n, 0)]
                 if m.index == 0 and self._is_value(m.node):
+                    if capped:
+                        return self._result("interactions", start, before)
                     self.fire(n, m.node)
                     if sweep_at is not None and len(self.kind) > sweep_at:
                         self.sweep([port, wanted] + todo)
-                        sweep_at = max(2 * len(self.kind), sweep_above)
+                        sweep_at = max(2 * len(self.kind), sweep_above) if sweep_above else 0
                         stack = [wanted]
                 else:
                     stack.append(Port(n, 0))

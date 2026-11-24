@@ -100,3 +100,41 @@ def test_dot_marks_the_active_pair():
     net = combinators()
     net.wire(net.make("era"), net.make("era"))
     assert "penwidth=3" in net.dot()
+
+
+def test_a_host_call_whose_outputs_are_wired_to_the_pair_itself():
+    """A split function whose two outputs are joined to each other: the two results meet."""
+    from inets import ivm
+    net = inets.Net(inets.bundled("ivm"), ivm.IvmHost({}))
+    f = net.add_node("fn", ivm.Fn("vi:io:split", split=True))
+    net.wire((f, 1), (f, 2))
+    net.wire((f, 0), net.make("val", param=ivm.IO))
+    r = net.reduce()
+    assert r.reason == "normal" and net.kind == {} and net.link == {}
+    assert r.counts == {"extrinsic": 1, "erase": 1} and "ext_erase" in net.flags
+
+
+def test_sweeping_after_every_interaction_really_does():
+    from inets import ski
+
+    class Counting(inets.Net):
+        swept = 0
+
+        def sweep(self, roots):
+            self.swept += 1
+            super().sweep(roots)
+
+    net = Counting(inets.bundled("ski"))
+    root = net.free()
+    net.wire(root, ski.encode(net, ski.parse("```SII```SKK```SKK0")))
+    r = net.reduce_by_need(root, sweep_above=0)
+    assert net.swept == r.interactions > 5
+    assert ski.read_back(net, root) == (0, 0)
+    sound(net)
+
+
+def test_by_need_does_not_report_a_cap_it_did_not_need():
+    from inets import ski
+    exact = ski.run("```SKKI").result.interactions
+    assert ski.run("```SKKI", max_interactions=exact).result.reason == "wanted"
+    assert ski.run("```SKKI", max_interactions=exact - 1).result.reason == "interactions"

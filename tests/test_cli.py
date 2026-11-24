@@ -15,4 +15,8 @@ def test_verbs_and_exit_codes(capsys, tmp_path):
     bad.write_text("agent a 0\nagent b 0\nrule a >< a\n  => nothing\n  count x\n")
     assert main(["check", str(bad)]) == 1                                 # problems found
     assert main(["no-such-verb"]) == 2
+    assert main(["run", "ski", "S", "--rounds", "--lazy"]) == 2
+    binary = tmp_path / "binary.iv"
+    binary.write_bytes(b"\xff\xfe")
+    assert main(["run", "ivm", str(binary)]) == 2
     assert "Traceback" not in capsys.readouterr().err

@@ -21,7 +21,7 @@ def test_a_comment_at_the_very_end_is_only_a_comment():
     assert list(ivy.read("m:n { ^ = ivm:eraser }//x")) == ["m:n"]
 
 
-@pytest.mark.parametrize("text", ["m:n { ^ = ", "m:n { ^ = ivm:x(a }", "m:n ^", "m:n { ^ ivm:eraser }"])
+@pytest.mark.parametrize("text", ["m:n { ^ = ", "m:n { ^ = ivm:x(a }", "m:n ^", "m:n { ^ ivm:eraser }", "m:n { ^ = ivm:n32#ff }"])
 def test_text_that_is_not_a_net_is_an_ivy_error(text):
     with pytest.raises(inets.IvyError):
         ivy.read(text)
@@ -40,7 +40,8 @@ def test_wires_said_to_be_one_are_one_however_they_are_chained():
 
 
 @pytest.mark.parametrize("text", ["m:n { ^ = ivm:x(a b)  a = ivm:eraser }", "m:n { ivm:eraser = ivm:eraser }",
-                                  "m:n { ^ = ivm:x(ivm:eraser) }", "m:n { ^ = some:thing }"])
+                                  "m:n { ^ = ivm:x(ivm:eraser) }", "m:n { ^ = some:thing }", "m:n { ^ = ivm:graft }",
+                                  "m:n { ^ = ivm:ext:merge(a a) }"])
 def test_what_is_not_a_net_of_the_system_is_an_ivy_error(text):
     with pytest.raises(inets.IvyError):
         build(text)
