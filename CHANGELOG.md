@@ -28,8 +28,9 @@ Fixes:
 
 - Reduction by need kept a list entry for every interaction it made, so its memory grew
   with the length of a run even when the net stayed small. The list is now pruned. No
-  count changes; vine-aviary's SKIjack t1 by need is a little faster (37 s against 41 s,
-  and 39 s against 42 s, in two pairs of runs on one machine).
+  count changes. On vine-aviary's SKIjack t1 by need (as applications), peak memory is
+  lower (625 and 715 MB against 769 and 931 MB) and time about the same (55 and 56 s
+  against 57 and 50 s), in runs alternated with 0.1.2 on one loaded machine.
 - `Net.sweep` and `Net.reduce_by_need` raise `Error` for a port that is wired to nothing;
   they raised `KeyError`.
 - `inets.ivm`: printing a number that is no character (above `0x10FFFF`, or a surrogate,
