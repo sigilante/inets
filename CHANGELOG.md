@@ -54,7 +54,7 @@ Fixes:
 
 - `inets`: reduction by need no longer runs without end on a net built against its table's
   signs (an input joined to an input) or on a value that waits on itself. It raises
-  `Stuck`, and the cap on interactions was not reached in either case before.
+  `Stuck`. Before, the cap on interactions did not stop either case.
 - `inets-kernel`: an equation with a side missing (`con (a b) =`) is reported in words; it
   raised a Python exception before.
 - Counts are worded in the singular where there is one (`1 interaction`).
@@ -62,7 +62,7 @@ Fixes:
 - The README has an Install section for both packages, and its links work on PyPI. The
   kernel's README says what it left out: the table it starts with, separators and
   comments in a net, and that a Jupyter front end is installed separately.
-- The notebooks are regenerated, with four sentences made exact.
+- The notebooks are regenerated, with corrections to their wording.
 
 ## 0.1.0
 

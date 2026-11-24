@@ -52,7 +52,7 @@ rule add (y r) >< zero
 | `%table`, `%check`, `%rules` | show the current table; check it; list its rules, marking those that are not local |
 | `%schedule HOW` | `stack` (the default), `queue`, `random`, `rounds`, or `need PORT`: by need for the free port named PORT (default `out`), in a table with signs |
 | `%cap N` | stop a run after N interactions (default 10000) |
-| `%trace on` / `off` | with `rounds`, draw the net after each round, up to twelve rounds (later ones are not drawn); the last drawing stands for what is left |
+| `%trace on` / `off` | with `rounds`, draw the net after each round, up to twelve rounds; later rounds run but are not drawn, so after twelve rounds the last drawing is not the final net |
 | `%ski TERM [--rounds \| --lazy]` | reduce a term of S, K and I in prefix form, by need unless said |
 | `%demo` | one term, K I Ω, reduced three ways |
 | `%help` | this list |
@@ -72,8 +72,7 @@ pip install -e '.[test]'      # in kernel/, with inets installed
 pytest
 ```
 
-The tests run what a cell means without Jupyter, and one small notebook through the kernel
-itself.
+The tests run cells without Jupyter, and one small notebook through the kernel itself.
 
 ## Licence
 

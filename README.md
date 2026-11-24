@@ -8,7 +8,7 @@ fast. What it says about a system rests on checks of the table and on tests, not
 
 ## Install
 
-Both packages are on PyPI and need Python 3.10 or later.
+The two packages, `inets` and `inets-kernel`, are on PyPI and need Python 3.10 or later.
 
 ```sh
 pip install inets            # the library and the `inets` command; no dependencies
@@ -154,8 +154,8 @@ say what is there. A table whose rules expand named nets or call functions needs
 `system.check()`, or `inets check TABLE`, reports each problem as a sentence. For any
 table:
 
-- a rule with no body or no count, or one that uses a parameter or a port it does not
-  have, gives an agent a parameter it does not take, or names two ports with one letter;
+- a rule that has no body or no count, uses a parameter or a port it does not have, gives
+  an agent a parameter it does not take, or names two ports with one letter;
 - a rule whose right-hand side does not use every auxiliary port of its pair exactly once,
   or leaves a port of a new node unjoined: the net it makes must have the pair's free
   ports;
@@ -175,7 +175,7 @@ outputs or two inputs. If no rule does that, a net whose wires each join an outp
 input stays that way, so the only principal ports that can meet are a consumer's and a
 value's, and each such pair has a rule.
 
-It does not decide whether a system terminates, and it does not show that a rule is the
+The check does not decide whether a system terminates, and it does not show that a rule is the
 one intended: S with its arguments exchanged passes every check. `inets rules TABLE` marks
 each rule that is *not* a local rule: one that looks at a neighbour, expands a named net,
 calls the host, or keeps one of its pair. The theorem about order is for local rules.
@@ -189,7 +189,7 @@ calls the host, or keeps one of its pair. The theorem about order is for local r
 | `net.reduce_by_need(port)` | only the pairs that the value wanted at `port` depends on | a table with signs | `wanted`, with the active pairs it left |
 
 Each takes `max_interactions` and stops with `interactions` if it gets there; a run in
-rounds looks at the cap between rounds, so it may pass it by less than a round. The number
+rounds looks at the cap between rounds, so it may overshoot the cap by up to one round. The number
 of rounds is the net's span: the longest chain of interactions that must follow one
 another. A result's counts are for that run. Any schedule raises `inets.Stuck` at a pair
 no rule applies to; reduction by need raises it too if the value wanted depends on a free
@@ -296,7 +296,7 @@ The tables, the checks and the machine were worked out in
 [vine-aviary](https://github.com/sigilante/vine-aviary), which has the measurements behind
 the `ski` and `lazy` tables and the argument for why a net of agents cannot both stop when
 it should and share work. This package is that code made general, and vine-aviary now
-uses it: its census, its programs on the IVM and SKIjack's programs give the same output
+uses it: vine-aviary's census, its programs on the IVM, and SKIjack's programs give the same output
 with this package as with the code it replaced, counts included.
 
 ## Licence
