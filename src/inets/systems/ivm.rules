@@ -1,0 +1,112 @@
+# The interaction system of the IVM, the machine that runs Vine.
+#
+# Read from VineLang/vine at commit cf0c325: ivm/src/runtime/interact.rs (link, interact,
+# call), graft.rs, port.rs, program.rs. `count` is the statistic the IVM adds one to.
+# inets.ivm supplies the host: the nets that references name and the extrinsic functions.
+
+agent era   0            # ivm:eraser
+agent val   0 param v    # an extrinsic value: ivm:n32#k, ivm:f32#k, ivm:nil, ivm:branch[nets], IO
+                         #   v.copy: whether the value's type may be copied
+agent graft 0 param g    # ivm:graft[g]: a reference to the net named g
+agent comb  2 param l    # a binary combinator with label l: ivm:x is l = 0, ivm:y is l = 1
+agent fn    2 param f    # an extrinsic function node: ivm:ext:split[f] (1 value in, 2 ports out),
+                         #   ivm:ext:merge[f] (2 values in, 1 port out), ivm:ext:merge:swap[f]
+
+# --- two agents without auxiliary ports -------------------------------------------------
+
+rule era >< era
+  => nothing
+  count erase
+
+rule era >< graft g
+  => nothing
+  count erase
+
+rule graft g >< graft h
+  => nothing
+  count erase
+  note neither net is expanded: the result could not be seen
+
+rule val v >< era
+  => nothing
+  count erase
+  flag ext_erase when not v.copy
+
+rule val v >< val w
+  => nothing
+  count erase
+  flag ext_erase when not v.copy
+  flag ext_erase when not w.copy
+
+# --- the combinators --------------------------------------------------------------------
+
+rule comb l (a b) >< comb m (c d) when l = m
+  => a = c; b = d
+  count annihilate
+
+rule comb l (a b) >< comb m (c d) when l != m
+  => a = comb m (p q); b = comb m (r s); c = comb l (p r); d = comb l (q s)
+  count commute
+
+rule comb l (a b) >< fn f (c d)
+  => a = fn f (p q); b = fn f (r s); c = comb l (p r); d = comb l (q s)
+  count commute
+
+rule era >< comb l (a b)
+  => a = era; b = era
+  count copy
+
+rule era >< fn f (a b)
+  => a = era; b = era
+  count copy
+
+rule val v >< comb l (a b) when v.copy
+  => a = val v; b = val v
+  count copy
+
+rule val v >< comb l (a b) when not v.copy
+  => a = era; b = era
+  count copy
+  flag ext_copy
+
+# --- references to nets -----------------------------------------------------------------
+
+rule graft g >< comb l (a b) when l = 0
+  => expand g
+  count graft
+
+rule graft g >< comb l (a b) when l != 0
+  => a = graft g; b = graft g
+  count copy
+  note a reference is copied by a combinator of any label but 0, and expanded by label 0
+
+rule graft g >< fn f (a b)
+  => expand g
+  count graft
+
+rule graft g >< val v
+  => expand g
+  count graft
+
+# --- extrinsic functions ----------------------------------------------------------------
+
+rule val v >< fn f (a b) when f.split
+  => call f (v) -> a b
+  count extrinsic
+
+rule val v >< fn f (a b) when f.merge and a is val w
+  => call f (v w) -> b
+  count extrinsic
+  note this rule looks at what is on an auxiliary port
+
+rule val v >< fn f (a b) when otherwise
+  => a = fn f.swapped (val v b)
+  count none
+  note the node turns to face its other argument, keeping the first on its first port;
+  note f.swapped is f with the order of its arguments exchanged
+
+rule fn f (a b) >< fn h (c d)
+  => left = era; right = era
+  count none
+  flag invalid_interaction
+  note two function nodes facing each other is an error whatever their functions

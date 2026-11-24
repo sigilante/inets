@@ -1,0 +1,8 @@
+// A reference copied by a combinator of label 1, then each copy expanded.
+iv:main {
+  ^ = ivm:x(io0 io2)
+  ivm:graft[:char] = ivm:y(a b)
+  io0 = ivm:ext:merge[root:io:print_char](a io1)
+  io1 = ivm:ext:merge[root:io:print_char](b io2)
+}
+:char { ^ = ivm:n32#65 }

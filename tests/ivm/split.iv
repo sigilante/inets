@@ -1,0 +1,6 @@
+// A split function: the IO value divided and joined again.
+iv:main {
+  ^ = ivm:x(io out)
+  io = ivm:ext:split[vi:io:split](io1 io2)
+  io1 = ivm:ext:merge[vi:io:merge](io2 out)
+}

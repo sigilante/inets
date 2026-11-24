@@ -1,0 +1,6 @@
+// A host function that fails.
+iv:main {
+  ^ = ivm:x(io io)
+  ivm:n32#1 = ivm:ext:merge[vi:n32:div](ivm:n32#0 out)
+  out = ivm:eraser
+}

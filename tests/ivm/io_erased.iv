@@ -1,0 +1,6 @@
+// The IO value erased.
+iv:main {
+  ^ = ivm:x(io out)
+  io = ivm:eraser
+  out = ivm:n32#0
+}

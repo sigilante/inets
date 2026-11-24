@@ -1,0 +1,9 @@
+// Two function nodes facing each other: an error.
+iv:main {
+  ^ = ivm:x(io io)
+  ivm:ext:merge[vi:n32:add](a b) = ivm:ext:merge[vi:n32:add](c d)
+  a = ivm:n32#1
+  b = ivm:eraser
+  c = ivm:n32#2
+  d = ivm:eraser
+}

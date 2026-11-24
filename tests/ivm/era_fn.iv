@@ -1,0 +1,7 @@
+// A function node erased.
+iv:main {
+  ^ = ivm:x(io io)
+  ivm:eraser = ivm:ext:merge[vi:n32:add](a b)
+  a = ivm:n32#1
+  b = ivm:eraser
+}

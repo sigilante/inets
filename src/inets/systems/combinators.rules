@@ -1,0 +1,36 @@
+# The symmetric interaction combinators: two binary agents and an eraser.
+#
+# Lafont showed (1997) that three agents of this kind suffice for any interaction system;
+# these are the symmetric ones, in which both binary agents annihilate straight across.
+# The IVM's `ivm:x` and `ivm:y` behave as `con` and `dup` do here.
+
+agent con 2      # a constructor
+agent dup 2      # a duplicator
+agent era 0      # an eraser
+
+# Two of a kind annihilate: their ports are joined straight across.
+rule con (a b) >< con (c d)
+  => a = c; b = d
+  count annihilate
+
+rule dup (a b) >< dup (c d)
+  => a = c; b = d
+  count annihilate
+
+# Two of different kinds pass through each other, each copying the other.
+rule con (a b) >< dup (c d)
+  => a = dup (p q); b = dup (r s); c = con (p r); d = con (q s)
+  count commute
+
+# An eraser erases, and sends erasers on.
+rule era >< con (a b)
+  => a = era; b = era
+  count erase
+
+rule era >< dup (a b)
+  => a = era; b = era
+  count erase
+
+rule era >< era
+  => nothing
+  count erase

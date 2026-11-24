@@ -1,0 +1,5 @@
+// Two values facing each other.
+iv:main {
+  ^ = ivm:x(io io)
+  ivm:n32#1 = ivm:n32#2
+}

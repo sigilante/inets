@@ -1,0 +1,156 @@
+{
+ "comb_fn.iv": {
+  "counts": {
+   "annihilate": 2,
+   "commute": 1,
+   "copy": 1,
+   "erase": 0,
+   "extrinsic": 4,
+   "graft": 1
+  },
+  "flags": [],
+  "output": "AB"
+ },
+ "div_zero.iv": {
+  "counts": {
+   "annihilate": 1,
+   "commute": 0,
+   "copy": 0,
+   "erase": 1,
+   "extrinsic": 1,
+   "graft": 1
+  },
+  "flags": [
+   "ext_generic"
+  ],
+  "output": ""
+ },
+ "era_fn.iv": {
+  "counts": {
+   "annihilate": 1,
+   "commute": 0,
+   "copy": 1,
+   "erase": 2,
+   "extrinsic": 0,
+   "graft": 1
+  },
+  "flags": [],
+  "output": ""
+ },
+ "fn_fn.iv": {
+  "counts": {
+   "annihilate": 1,
+   "commute": 0,
+   "copy": 2,
+   "erase": 4,
+   "extrinsic": 0,
+   "graft": 1
+  },
+  "flags": [
+   "invalid_interaction"
+  ],
+  "output": ""
+ },
+ "graft_copied.iv": {
+  "counts": {
+   "annihilate": 1,
+   "commute": 0,
+   "copy": 1,
+   "erase": 0,
+   "extrinsic": 2,
+   "graft": 3
+  },
+  "flags": [],
+  "output": "AA"
+ },
+ "graft_graft.iv": {
+  "counts": {
+   "annihilate": 1,
+   "commute": 0,
+   "copy": 0,
+   "erase": 1,
+   "extrinsic": 0,
+   "graft": 1
+  },
+  "flags": [],
+  "output": ""
+ },
+ "graft_val.iv": {
+  "counts": {
+   "annihilate": 1,
+   "commute": 0,
+   "copy": 0,
+   "erase": 1,
+   "extrinsic": 0,
+   "graft": 2
+  },
+  "flags": [],
+  "output": ""
+ },
+ "io_copied.iv": {
+  "counts": {
+   "annihilate": 1,
+   "commute": 0,
+   "copy": 1,
+   "erase": 1,
+   "extrinsic": 0,
+   "graft": 1
+  },
+  "flags": [
+   "ext_copy",
+   "no_io"
+  ],
+  "output": ""
+ },
+ "io_erased.iv": {
+  "counts": {
+   "annihilate": 1,
+   "commute": 0,
+   "copy": 0,
+   "erase": 1,
+   "extrinsic": 0,
+   "graft": 1
+  },
+  "flags": [
+   "ext_erase",
+   "no_io"
+  ],
+  "output": ""
+ },
+ "split.iv": {
+  "counts": {
+   "annihilate": 1,
+   "commute": 0,
+   "copy": 0,
+   "erase": 0,
+   "extrinsic": 2,
+   "graft": 1
+  },
+  "flags": [],
+  "output": ""
+ },
+ "swap.iv": {
+  "counts": {
+   "annihilate": 1,
+   "commute": 0,
+   "copy": 0,
+   "erase": 0,
+   "extrinsic": 3,
+   "graft": 2
+  },
+  "flags": [],
+  "output": "@"
+ },
+ "val_val.iv": {
+  "counts": {
+   "annihilate": 1,
+   "commute": 0,
+   "copy": 0,
+   "erase": 1,
+   "extrinsic": 0,
+   "graft": 1
+  },
+  "flags": [],
+  "output": ""
+ }
+}

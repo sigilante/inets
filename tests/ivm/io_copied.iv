@@ -1,0 +1,7 @@
+// The IO value, which may not be copied, meets a combinator.
+iv:main {
+  ^ = ivm:x(io out)
+  io = ivm:y(a b)
+  a = out
+  b = ivm:eraser
+}

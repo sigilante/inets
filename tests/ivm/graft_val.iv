@@ -1,0 +1,6 @@
+// A reference facing a value is expanded.
+iv:main {
+  ^ = ivm:x(io io)
+  ivm:graft[:a] = ivm:n32#3
+}
+:a { ^ = ivm:eraser }

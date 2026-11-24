@@ -1,0 +1,7 @@
+// Two references facing each other: neither is expanded.
+iv:main {
+  ^ = ivm:x(io io)
+  ivm:graft[:a] = ivm:graft[:b]
+}
+:a { ^ = ivm:n32#1 }
+:b { ^ = ivm:n32#2 }
