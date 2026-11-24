@@ -166,3 +166,11 @@ def test_a_duplicator_that_lost_both_copies_leaves_an_eraser():
     net.sweep([s], ("dup",))                         # S itself is kept, as a root's node
     assert sorted(net.kind.values()) == ["S", "era"]
     sound(net)
+
+
+def test_unfold_handles_a_deep_term():
+    deep = ski.parse("`K" * 5000 + "I")
+    main, definitions = ski.name_subterms(deep, any_term=True)
+    assert ski.unfold(main, definitions) == deep
+    main, definitions = ski.name_subterms(ski.parse("`K" * 500 + "I"))
+    assert ski.run(main, schedule="rounds", definitions=definitions).result.finished

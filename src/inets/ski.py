@@ -203,25 +203,38 @@ def read_back(net, port, definitions=None):
 
 def unfold(term, definitions):
     """The term with every reference replaced by the term it names."""
-    memo = {}
-
-    def plain(t):
-        if isinstance(t, Ref):
-            if t.name not in memo:
-                memo[t.name] = plain(definitions[t.name])
-            return memo[t.name]
-        if isinstance(t, tuple):
-            spine = []
-            while isinstance(t, tuple):
-                spine.append(t[1])
-                t = t[0]
-            out = plain(t)
-            for x in reversed(spine):
-                out = (out, plain(x))
-            return out
-        return t
-
-    return plain(term)
+    # Iterative, so that a deep term does not reach Python's recursion limit.
+    memo, result, stack = {}, [], [("term", term)]
+    while stack:
+        kind, x = stack.pop()
+        if kind == "term":
+            if isinstance(x, Ref):
+                if x.name in memo:
+                    result.append(memo[x.name])
+                else:
+                    stack.append(("named", x.name))
+                    stack.append(("term", definitions[x.name]))
+            elif isinstance(x, tuple):
+                args = []
+                while isinstance(x, tuple):
+                    args.append(x[1])
+                    x = x[0]
+                # Built in order: the head, then each argument from the first.
+                stack.append(("apply", len(args)))
+                stack.extend(("term", a) for a in args)
+                stack.append(("term", x))
+            else:
+                result.append(x)
+        elif kind == "named":
+            memo[x] = result[-1]
+        else:
+            args = result[len(result) - x:]
+            del result[len(result) - x:]
+            out = result.pop()
+            for a in args:
+                out = (out, a)
+            result.append(out)
+    return result[0]
 
 
 def name_subterms(term, any_term=False):

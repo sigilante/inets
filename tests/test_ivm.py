@@ -44,3 +44,13 @@ def test_an_extrinsic_function_that_is_not_supplied_stops_the_run():
 def test_a_program_needs_a_main_net():
     with pytest.raises(inets.IvyError):
         ivm.run("m:n { ^ = ivm:eraser }")
+
+
+def test_printing_a_number_that_is_no_character_fails_as_an_extrinsic():
+    run = ivm.run('''
+iv:main {
+  ^ = ivm:x(io0 io1)
+  io0 = ivm:ext:merge[root:io:print_char](ivm:n32#4294967295 io1)
+}''')
+    assert "ext_generic" in run.flags
+    assert run.output == ""

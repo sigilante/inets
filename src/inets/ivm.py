@@ -101,6 +101,10 @@ def _branch(host, index, branches):
 def _print_char(host, io_value, n):
     if io_value.type != "io" or n.type != "n32":
         return None
+    # A number that is no character fails as a wrong argument does. What the IVM itself
+    # does with one has not been checked.
+    if not (n.data < 0xD800 or 0xE000 <= n.data <= 0x10FFFF):
+        return None
     host.out.write(chr(n.data))
     return io_value
 

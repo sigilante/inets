@@ -148,6 +148,10 @@ class Net:
         self.link[q] = p
         if p.index == 0 and q.index == 0 and _FREE not in (self.kind[p.node], self.kind[q.node]):
             self._active.append((p.node, q.node))
+            # Reduction by need fires pairs without taking them from this list, so it
+            # would grow with every interaction; prune it once it far outgrows the net.
+            if len(self._active) > 1024 + 2 * len(self.kind):
+                self.active()
 
     def ports(self, n):
         """The ports of a node."""
@@ -363,7 +367,8 @@ class Net:
         wanted, so when the net passes ``sweep_above`` nodes it is swept (:meth:`sweep`),
         and again each time it reaches twice the size it was left at. 0 sweeps after every
         interaction, None never. Sweeping needs exactly one eraser in the table and is
-        skipped, silently, without one. ``collapse`` is passed to each sweep.
+        skipped, silently, without one. ``collapse`` is passed to each sweep, and its
+        names are checked only when a sweep happens.
 
         Raises :class:`~inets.errors.Stuck` if the value wanted depends on a free port,
         waits on itself, or lies beyond a wire that joins two inputs (a net built against
@@ -372,6 +377,8 @@ class Net:
         if not self.system.signed:
             raise Error("reduction by need needs a table with signs")
         port = Port(*port)
+        if port not in self.link:
+            raise Error(f"the port {tuple(port)} is not wired to anything")
         start, before = self.interactions, dict(self.counts)
         sweep_at = sweep_above if self._eraser else None
         todo = [port]
@@ -434,17 +441,25 @@ class Net:
         that has lost one copy is removed instead, and its input joined to the copy that
         is left: copying and discarding a copy leaves the term as it was. This is a
         property of the agent, which the table cannot state, so the caller says which
-        agents have it."""
+        agents have it. ``()`` or None collapses nothing.
+
+        Raises :class:`~inets.errors.Error` if a root is not wired to anything."""
         if not self._eraser:
             raise Error("sweeping needs a table with signs and exactly one eraser")
-        if isinstance(collapse, str):
+        if collapse is None:
+            collapse = ()
+        elif isinstance(collapse, str):
             collapse = (collapse,)
+        roots = [Port(*r) for r in roots]
+        for r in roots:
+            if r not in self.link:
+                raise Error(f"the root {tuple(r)} is not wired to anything")
         for name in collapse:
             agent = self.system.agents.get(name)
             if agent is None or agent.signs != ("-", "+", "+"):
                 raise Error(f"only an agent with signs - + + can be collapsed, and {name!r} is not one")
         # The nodes that own the roots are kept, and everything their inputs lead to.
-        live, stack = set(), [Port(*r).node for r in roots]
+        live, stack = set(), [r.node for r in roots]
         while stack:
             n = stack.pop()
             if n in live:

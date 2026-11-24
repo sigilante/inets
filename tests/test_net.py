@@ -162,3 +162,42 @@ def test_by_need_stops_at_a_net_built_against_the_signs():
     net.wire((a, 1), net.make("I"))
     with pytest.raises(inets.Stuck, match="vicious circle"):
         net.reduce_by_need(out, max_interactions=10)
+
+
+def test_the_list_of_active_pairs_stays_small_by_need():
+    # Reduction by need fires pairs without taking them from the list; it must not
+    # grow with every interaction while the net itself stays small.
+    from inets import ski
+
+    peak = []
+
+    class Watching(inets.Net):
+        def fire(self, a, b):
+            rule = super().fire(a, b)
+            peak.append(len(self._active))
+            return rule
+
+    net = Watching(inets.bundled("ski"))
+    root = net.free()
+    net.wire(root, ski.encode(net, ski.parse("```SII``SII"), False))
+    result = net.reduce_by_need(root, max_interactions=20000)
+    assert result.reason == "interactions"
+    assert max(peak) < 2000
+
+
+def test_a_port_wired_to_nothing_is_an_error_not_a_key_error():
+    net = inets.Net(inets.bundled("ski"))
+    loose = net.free()
+    with pytest.raises(inets.Error):
+        net.sweep([loose])
+    with pytest.raises(inets.Error):
+        net.reduce_by_need(loose)
+
+
+def test_collapse_none_means_no_collapse():
+    from inets import ski
+
+    net = inets.Net(inets.bundled("ski"))
+    root = net.free()
+    net.wire(root, ski.encode(net, ski.parse("``SII"), False))
+    net.sweep([root], collapse=None)
