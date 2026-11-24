@@ -19,14 +19,16 @@ cost.
 
 **Commands**, one to a line, beginning ``%``:
 
-    %system NAME      start from a bundled table (combinators, ski, lazy), or `new` for none
+    %system NAME      start from a bundled table (combinators, the default; ski; lazy), or
+                      `new` for none
     %table            show the current table
     %check            check it
     %rules            list its rules, marking those that are not local
     %schedule HOW     stack (default), queue, random, rounds, or `need PORT`: by need for
                       the free port named PORT (default out), in a table with signs
     %cap N            stop a run after N interactions (default 10000)
-    %trace on|off     with `rounds`, draw the net before each round (off by default)
+    %trace on|off     with `rounds`, draw the net after each round, up to twelve rounds
+                      (off by default)
     %ski TERM [--rounds | --lazy]
                       reduce a term of S, K and I in prefix form, by need unless said
     %demo             one term, K I Ω, reduced three ways
@@ -252,17 +254,18 @@ class Session:
             return [Output("text", f"{title}: {len(net.kind)} nodes (too many to draw)")]
         svg = _svg(net.dot(names))
         if svg is None:
-            return [Output("text", f"{title} (no `dot` program was found, so here is the Graphviz text):\n{net.dot(names)}")]
+            return [Output("text", f"{title} (Graphviz's `dot` program is missing or did not draw it, so here is the Graphviz text):\n{net.dot(names)}")]
         return [Output("text", title + ":"), Output("svg", svg)]
 
     @staticmethod
     def says(result):
-        extra = f", in {result.rounds} rounds, the widest of {result.widest}" if result.rounds else ""
+        some = lambda n, word: f"{n} {word}" + ("" if n == 1 else "s")
+        extra = f", in {some(result.rounds, 'round')}, the widest of {result.widest}" if result.rounds else ""
         counts = ", ".join(f"{k} {v}" for k, v in sorted(result.counts.items()))
         why = {"normal": "no active pair is left", "wanted": "the value wanted is there",
                "interactions": "the cap was reached"}[result.reason]
-        return (f"stopped: {why} ({result.reason}); {result.interactions} interactions{extra}; "
-                f"{result.active_left} active pairs left" + (f"; {counts}" if counts else ""))
+        return (f"stopped: {why} ({result.reason}); {some(result.interactions, 'interaction')}{extra}; "
+                f"{some(result.active_left, 'active pair')} left" + (f"; {counts}" if counts else ""))
 
     def net(self, text):
         if not self.system.agents:

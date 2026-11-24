@@ -21,11 +21,15 @@ def table(name):
     return bundled(name) if name in BUNDLED else System.load(name)
 
 
+def some(n, word):
+    return f"{n} {word}" + ("" if n == 1 else "s")
+
+
 def show_result(result):
-    extra = f", {result.rounds} rounds, widest {result.widest}" if result.rounds else ""
+    extra = f", {some(result.rounds, 'round')}, widest {result.widest}" if result.rounds else ""
     counts = ", ".join(f"{k} {v}" for k, v in sorted(result.counts.items()))
-    print(f"stopped: {result.reason}; {result.interactions} interactions{extra}; "
-          f"{result.active_left} active pairs left" + (f"; {counts}" if counts else ""), file=sys.stderr)
+    print(f"stopped: {result.reason}; {some(result.interactions, 'interaction')}{extra}; "
+          f"{some(result.active_left, 'active pair')} left" + (f"; {counts}" if counts else ""), file=sys.stderr)
 
 
 def demo():
@@ -39,7 +43,7 @@ def demo():
         r = run.result
         answer = ski.show(run.term) if r.finished else f"none: stopped at the cap of {cap} interactions"
         print(title)
-        print(f"  answer {answer}; {r.interactions} interactions, of which {r.counts.get('contract', 0)} contractions; "
+        print(f"  answer {answer}; {some(r.interactions, 'interaction')}, of which {some(r.counts.get('contract', 0), 'contraction')}; "
               f"stopped because: {r.reason}; active pairs left: {r.active_left}")
     print("\nBy need stops with active pairs left: what it reaches is a normal form of what the root can")
     print("reach, not of the whole net. Ω is still there, unreduced, until it is swept away.")

@@ -25,6 +25,16 @@ def test_a_net_is_drawn_reduced_and_drawn_again():
         assert "Graphviz text" in texts(out)
 
 
+def test_without_a_working_dot_the_text_is_shown(monkeypatch, tmp_path):
+    fake = tmp_path / "dot"
+    fake.write_text("#!/bin/sh\nexit 1\n")
+    fake.chmod(0o755)
+    monkeypatch.setenv("PATH", str(tmp_path))
+    out = Session().execute("con (a b) = dup (era era)")
+    assert "svg" not in kinds(out) and "missing or did not draw it" in texts(out)
+    assert "graph net {" in texts(out) and "3 interactions" in texts(out)
+
+
 def test_free_ports_are_the_names_used_once():
     s = Session()
     net, free = s.build("con (a b) = con (c d)")

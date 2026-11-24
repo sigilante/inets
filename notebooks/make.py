@@ -43,7 +43,7 @@ A duplicator copying a small tree of constructors whose leaves are erasers. Watc
         ("code", "%schedule rounds\n%trace on\ncon (con (era era) con (era era)) = dup (p q)"),
         ("md", """The duplicator went through the tree one node at a time, leaving `p` and `q` each with a copy.
 
-The number of rounds is the net's **span**: the longest chain of interactions that must follow one another. The order in which pairs fire does not change the result or the number of interactions. That is a theorem about interaction nets; here it is on this net, with one pair fired at a time in two different orders."""),
+The number of rounds is the net's **span**: the longest chain of interactions that must follow one another. For a net that reaches a normal form, the order in which pairs fire does not change the result or the number of interactions. That is a theorem about interaction nets (strong confluence); here it is on this net, with one pair fired at a time in two different orders."""),
         ("code", "%trace off\n%schedule stack\ncon (con (era era) con (era era)) = dup (p q)"),
         ("code", "%schedule queue\ncon (con (era era) con (era era)) = dup (p q)"),
     ],
@@ -70,7 +70,7 @@ Each port gets a sign: `+` for an output and `-` for an input, the principal por
 rule add (y r) >< succ (x)
   => r = succ (s); x = add (y s)
   count add"""),
-        ("md", """No problems. The check has confirmed that each rule keeps its pair's free ports, and that every wire a rule makes joins an output to an input. With that, the only principal ports that can ever meet are a consumer's and a value's, and each such pair has a rule.
+        ("md", """No problems. The check has confirmed that each rule keeps its pair's free ports, and that every wire a rule makes joins an output to an input. With that, in a net wired by the signs (the kernel does not check the nets you type), the only principal ports that can ever meet are a consumer's and a value's, and each such pair has a rule.
 
 It has *not* confirmed that the rules are the right ones. Only running them shows that.
 
@@ -105,7 +105,7 @@ rule era >< succ (x)
     "03-one-term-three-ends.ipynb": [
         ("md", """# One term, three ends
 
-The order of reduction does not change where a net ends up. It does decide **whether** it gets there.
+The order of reduction does not change a net's normal form. It does decide **whether** the net gets there.
 
 This notebook uses the combinators S, K and I as agents (the `ski` table). A term is written in prefix form: a backtick applies the next term to the one after it. `K x y` reduces to `x`; `I x` to `x`; `S x y z` to `x z (y z)`.
 
@@ -125,7 +125,7 @@ By need, `x` is evaluated once and the result copied: nine contractions in all."
         ("code", "%ski ```SII```SKK```SKK```SKK0"),
         ("md", "By the `lazy` table, each use evaluates its own copy: fifteen, the same as ordinary term rewriting."),
         ("code", "%ski ```SII```SKK```SKK```SKK0 --lazy"),
-        ("md", """Why not both? Because an agent can be reached only through its one principal port, a piece of net that waits to be asked cannot be woken from two sides. So in a net of agents with every pair fired, stopping when you should and sharing work pull against each other. The argument, and measurements on larger programs, are in [vine-aviary](https://github.com/sigilante/vine-aviary).
+        ("md", """Why not both? Because an agent can be reached only through its one principal port, a piece of net that waits to be asked cannot be woken from two sides. So in these two tables, with every pair fired, stopping when you should and sharing work pull against each other. The argument, and measurements on larger programs, are in [vine-aviary](https://github.com/sigilante/vine-aviary).
 
 ## Looking inside
 

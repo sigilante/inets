@@ -18,7 +18,7 @@ inets demo
 For notebooks, add the Jupyter kernel and tell Jupyter about it:
 
 ```sh
-pip install inets-kernel                        # brings in inets and ipykernel
+pip install inets-kernel jupyterlab             # the kernel brings in inets and ipykernel
 python -m inets_kernel.install --sys-prefix     # into this Python environment; or --user
 jupyter lab                                     # then choose "Interaction nets"
 ```
@@ -52,11 +52,11 @@ where `Ω` reduces to itself without end and `K` discards it.
 
 ```
 ski table, by need: only the pairs the answer depends on
-  answer I; 2 interactions, of which 1 contractions; stopped because: wanted; active pairs left: 2
+  answer I; 2 interactions, of which 1 contraction; stopped because: wanted; active pairs left: 2
 ski table, every pair fired: Ω runs although K will discard it
   answer none: stopped at the cap of 300 interactions; 301 interactions, of which 149 contractions; stopped because: interactions; active pairs left: 3
 lazy table, every pair fired: the demand is carried in the net, and no work is shared
-  answer I; 18 interactions, of which 1 contractions; stopped because: normal; active pairs left: 0
+  answer I; 18 interactions, of which 1 contraction; stopped because: normal; active pairs left: 0
 ```
 
 Every run says why it stopped. `normal` means no active pair is left. `wanted` means
