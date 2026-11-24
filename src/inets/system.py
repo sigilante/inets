@@ -172,16 +172,20 @@ class Rewrite:
     :class:`Ext`, a :class:`New` or a :class:`Pair`."""
     nodes: list = field(default_factory=list)
     links: list = field(default_factory=list)
-    _keeps: tuple = field(default=None, init=False, repr=False, compare=False)
 
     @property
     def keeps(self):
         """Whether the body keeps the pair's left node, and its right. Read on every
-        interaction, so it is worked out once (again only if links are added)."""
-        if self._keeps is None or self._keeps[0] != len(self.links):
-            sides = {e.side for link in self.links for e in link if type(e) is Pair}
-            self._keeps = (len(self.links), (0 in sides, 1 in sides))
-        return self._keeps[1]
+        interaction, so it looks at each end's type rather than comparing ends."""
+        left = right = False
+        for link in self.links:
+            for e in link:
+                if type(e) is Pair:
+                    if e.side:
+                        right = True
+                    else:
+                        left = True
+        return left, right
 
 
 @dataclass

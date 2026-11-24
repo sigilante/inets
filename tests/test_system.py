@@ -119,6 +119,10 @@ def test_keeps_follows_the_body():
     assert rewrite.keeps == (False, False)
     rewrite.links.append((inets.Pair(1), inets.Ext("a")))
     assert rewrite.keeps == (False, True)
+    rewrite.links[0] = (inets.Pair(0), inets.Ext("a"))      # replaced, not added
+    assert rewrite.keeps == (True, False)
+    rewrite.links = [(inets.Ext("b"), inets.Ext("a"))]
+    assert rewrite.keeps == (False, False)
     for rule in inets.bundled("lazy").rules:
         if isinstance(rule.body, inets.Rewrite):
             ends = [e for link in rule.body.links for e in link]
