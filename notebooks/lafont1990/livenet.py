@@ -17,8 +17,8 @@ the page by viz.js, which needs a network connection. ``retro(True)`` draws ever
 photocopied 1990 figure, and ``arrows(False)`` leaves out the arrowheads that mark
 principal ports.
 
-The drawing and the net reader are copied from inets's notebook drawing and from
-inets-benchmarks (bench/nettext.py), until both move into inets itself.
+The net reader and the comparison of nets are copied from inets-benchmarks
+(bench/nettext.py), until they and the drawing move into inets itself.
 """
 
 import html as _html

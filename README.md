@@ -260,6 +260,14 @@ building a system of your own, for adding numbers; and one term reaching three e
 are written and run by `notebooks/make.py`, so what they show is what the kernel gives.
 The pictures need Graphviz's `dot`.
 
+[`notebooks/lafont1990/`](https://github.com/sigilante/inets/tree/master/notebooks/lafont1990)
+holds [*Interaction nets, live*](https://github.com/sigilante/inets/blob/master/notebooks/lafont1990/interaction-nets.ipynb),
+a companion to Yves Lafont's paper *Interaction Nets* (POPL 1990) that follows it section
+by section. It runs on the ordinary Python kernel, not the one above, and is written for
+JupyterLite, where it runs in the browser with nothing to install. The paper's systems
+are drawn in the style of his figures and reduced step by step. Its helper module,
+`livenet.py`, sits beside it. Without Graphviz installed, it draws with viz.js in the page.
+
 ## Tests
 
 ```sh
