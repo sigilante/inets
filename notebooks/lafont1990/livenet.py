@@ -86,6 +86,120 @@ def _outputs(net, named):
 
 
 def lafont_dot(net, names=None, top=None):
+    """The net as Graphviz text, drawn as in Lafont's figures. In a table with signs every
+    port is placed by its direction (:func:`_flow_dot`); otherwise the net hangs from its
+    top free ports (:func:`_hung_dot`)."""
+    agents = [k for k in net.kind.values() if k != _FREE]
+    if agents and all(net.system.agents[k].signs is not None for k in agents):
+        return _flow_dot(net, names, top)
+    return _hung_dot(net, names, top)
+
+
+def _flow_dot(net, names=None, top=None):
+    """Lafont's orientation: outputs (+) on an agent's top edge, inputs (-) on its bottom
+    edge, each in port order from left to right, so values flow up from the agent that makes
+    them to the one that uses them. A free port takes the direction opposite to the port it
+    is joined to: a free port joined to an output is one of the net's results, drawn above.
+    A wire that would run against the flow closes a cycle; it is drawn as a loop and does not
+    shape the layout. ``top`` puts the free ports it names in the top rank."""
+    names = {Port(*p).node: label for p, label in (names or {}).items()}
+
+    def sign(port):
+        kind = net.kind[port.node]
+        if kind == _FREE:
+            q = net.link.get(port)
+            return "-" if q is None or sign(q) == "+" else "+"
+        return net.system.agents[kind].signs[port.index]
+
+    out = [
+        "digraph net {",
+        '  graph [nodesep=0.3, ranksep=0.35, splines=polyline, bgcolor="transparent", rankdir=TB];',
+        '  node [shape=ellipse, fontname="Helvetica", fontsize=14, margin="0.06,0.02",'
+        ' width=0, height=0, penwidth=1.3];',
+        '  edge [penwidth=1.3, arrowsize=0.8, dir=both, arrowhead=none, arrowtail=none];',
+    ]
+    for n in sorted(net.kind):
+        kind = net.kind[n]
+        if kind == _FREE:
+            label = names.get(n)
+            if label is None or label.startswith("_"):
+                out.append(f'  n{n} [label="", shape=none, width=0.01, height=0.01, margin=0];')
+            else:
+                out.append(f'  n{n} [label=<<i>{label}</i>>, shape=plaintext, height=0.2, margin=0];')
+        else:
+            text = kind + (f" {net.param[n]}" if n in net.param else "")
+            shape = ", shape=circle" if len(text) <= 2 else ""
+            out.append(f'  n{n} [label="{text}"{shape}];')
+    tops = [Port(*p).node for p in top] if top is not None else \
+        [n for n in names if sign(Port(n, 0)) == "-" and net.kind.get(n) == _FREE]
+    if tops:
+        out.append("  { rank=min; " + " ".join(f"n{n};" for n in tops) + " }")
+
+    # Ports on each edge of each agent, in port order: outputs on top, inputs below.
+    side = {}
+    for n, kind in net.kind.items():
+        if kind == _FREE:
+            continue
+        ports = range(net.system.agents[kind].arity + 1)
+        side[n] = {"n": [i for i in ports if sign(Port(n, i)) == "+"],
+                   "s": [i for i in ports if sign(Port(n, i)) == "-"]}
+    spread = {"s": {1: ["s"], 2: ["sw", "se"], 3: ["sw", "s", "se"]},
+              "n": {1: ["n"], 2: ["nw", "ne"], 3: ["nw", "n", "ne"]}}
+
+    def compass(port, edge):
+        ports = side[port.node][edge]
+        return spread[edge].get(len(ports), [edge] * len(ports))[ports.index(port.index)]
+
+    # Walk down from the results, input to output, ports in order. A wire that comes back to
+    # an agent still on the walk closes a cycle (a difference-list's hole, say): it is drawn
+    # as a loop and left out of the layout, so the cycle is cut where Lafont cuts it.
+    def below(n):
+        for i in range(_arity(net, n) + 1):
+            p, q = Port(n, i), net.link.get(Port(n, i))
+            if q is not None and sign(p) == "-" and sign(q) == "+":
+                yield p, q
+    back, state = set(), {}
+    starts = tops + [n for n in names if n not in tops] + sorted(net.kind)
+    for start in starts:
+        if start in state:
+            continue
+        state[start] = "open"
+        stack = [(start, below(start))]
+        while stack:
+            n, wires = stack[-1]
+            for p, q in wires:
+                if state.get(q.node) == "open":
+                    back.add(frozenset((p, q)))
+                elif q.node not in state:
+                    state[q.node] = "open"
+                    stack.append((q.node, below(q.node)))
+                    break
+            else:
+                state[n] = "done"
+                stack.pop()
+
+    seen = set()
+    for p, q in sorted(net.link.items()):
+        if (q, p) in seen:
+            continue
+        seen.add((p, q))
+        # The wire runs from the input end (above) down to the output end (below).
+        upper, lower = (p, q) if sign(p) == "-" else (q, p)
+        attrs = []
+        for end, port, edge in (("tail", upper, "s"), ("head", lower, "n")):
+            if net.kind[port.node] == _FREE:
+                continue
+            if port.index == 0 and _ARROWS[0]:
+                attrs.append(f"arrow{end}=inv")
+            attrs.append(f"{end}port={compass(port, edge)}")
+        if sign(p) == sign(q) or frozenset((p, q)) in back:
+            attrs.append("constraint=false")  # closes a cycle, or not well typed
+        out.append(f"  n{upper.node} -> n{lower.node} [{', '.join(attrs)}];")
+    out.append("}")
+    return "\n".join(out)
+
+
+def _hung_dot(net, names=None, top=None):
     """The net as Graphviz text, drawn as in Lafont's figures."""
     names = {Port(*p).node: label for p, label in (names or {}).items()}
     tops = [Port(*p).node for p in top] if top is not None else (_outputs(net, names) or list(names)[:1])
