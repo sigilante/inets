@@ -322,6 +322,3 @@ def svg(dot):
         return None
     return r.stdout[r.stdout.index("<svg"):] if r.returncode == 0 and "<svg" in r.stdout else None
 
-
-class NetTextError(Exception):
-    pass

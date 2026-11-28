@@ -9,7 +9,11 @@ Added:
   `text.write(net, free)` writes one back; `text.same(...)` says whether two nets are the
   same up to the numbering of their nodes, in time quadratic in the largest closed piece.
   `y = x`, with each name used nowhere else, is two free ports joined to each other. Errors
-  are `inets.NetTextError`.
+  are `inets.NetTextError`. Reading and writing use loops, not recursion, so long chains and
+  rings are fine. What `write` gives reads back as the same net when free ports' names are
+  names that are not agents' names and parameters are whole numbers or names.
+- `inets.text` and `inets.draw` are in `inets.__all__`, so `from inets import *` now binds
+  `text` and `draw`.
 - `inets.draw`: pictures of nets in the style of Lafont's figures (ellipses, an arrowhead on
   each principal port, italic free ports, `_`-names as bare ends). With signs, outputs sit
   on top and inputs below, and a wire that closes a cycle does not shape the layout.

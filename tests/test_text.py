@@ -87,3 +87,34 @@ def test_a_port_joined_to_nothing_cannot_be_written():
     net.wire(out, inets.Port(net.add_node("A"), 0))
     with pytest.raises(NetTextError, match="joined to nothing"):
         text.write(net, {"out": out})
+
+
+def test_long_chains_and_rings_are_written():
+    net = inets.Net(ARITH)
+    z = net.free()
+    port = net.make("0")
+    for _ in range(3000):
+        port = net.make("S", port)
+    net.wire(z, port)
+    written = text.write(net, {"z": z})
+    assert written.count("S (") == 3000
+    ring = "; ".join(f"D (w{i}) = w{i + 1}" for i in range(1199)) + "; D (w1199) = w0"
+    n, free = text.read(UNSIGNED, ring)
+    m, free2 = text.read(UNSIGNED, text.write(n, free))
+    assert text.same(n, free, m, free2)
+
+
+def test_deep_nesting_reads():
+    deep = "z = " + "S (" * 3000 + "0" + ")" * 3000
+    n, free = text.read(ARITH, deep)
+    assert len(n.kind) == 3002 and text.write(n, free) == deep
+
+
+def test_parameters_and_unnamed_free_ports():
+    ski = inets.bundled("ski")
+    with pytest.raises(NetTextError, match="takes a parameter"):
+        text.read(ski, "z = atom (")
+    net, free = text.read(ski, "z = atom 3")
+    assert text.write(net, free) == "z = atom 3"
+    with pytest.raises(NetTextError, match="has no name"):
+        text.write(net, {})

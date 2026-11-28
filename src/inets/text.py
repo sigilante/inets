@@ -47,7 +47,13 @@ def read(system, text):
         else:
             seen[name] = port
 
-    def term(toks):
+    def ports(head, arity):
+        return f"{head} has {arity} auxiliary port" + ("" if arity == 1 else "s")
+
+    def begin(toks):
+        """Reads one agent's name (and parameter, and opening bracket) or a wire's name:
+        a name (str), a finished agent's principal port (a Port), or ``[node, arity]`` (a
+        list, as a Port is a tuple) for an agent whose ports follow."""
         if not toks:
             raise NetTextError("an equation is PORT = PORT, and one side is missing")
         head = toks.pop(0)
@@ -61,25 +67,50 @@ def read(system, text):
             if not toks:
                 raise NetTextError(f"{head} takes a parameter")
             word = toks.pop(0)
+            if word in ("(", ")", "=", ";"):
+                raise NetTextError(f"{head} takes a parameter, not {word}")
             param = int(word) if word.isdigit() else word
         n = net.add_node(head, param)
-        if agent.arity:
-            if not toks or toks.pop(0) != "(":
-                raise NetTextError(f"{head} needs its {agent.arity} ports in brackets")
-            i = 0
-            while toks and toks[0] != ")":
-                i += 1
-                if i > agent.arity:
-                    raise NetTextError(f"{head} has {agent.arity} auxiliary port" + ("" if agent.arity == 1 else "s"))
-                kid = term(toks)
-                if isinstance(kid, str):
-                    meet(kid, Port(n, i))
-                else:
-                    net.wire(Port(n, i), kid)
-            if not toks or i != agent.arity:
-                raise NetTextError(f"{head} has {agent.arity} auxiliary port" + ("" if agent.arity == 1 else "s"))
-            toks.pop(0)
-        return Port(n, 0)
+        if not agent.arity:
+            return Port(n, 0)
+        if not toks or toks.pop(0) != "(":
+            raise NetTextError(f"{head} needs its {agent.arity} ports in brackets")
+        return [n, agent.arity]
+
+    def term(toks):
+        """One side of an equation: a wire's name, or an agent's principal port. A loop with
+        a stack of its own, not recursion, so that deeply nested agents can be read; each
+        agent is wired to the port that holds it as soon as it is read."""
+        first = begin(toks)
+        if not isinstance(first, list):
+            return first
+        root = first[0]
+        stack = [[first[0], first[1], 0]]          # node, arity, ports read so far
+        while stack:
+            frame = stack[-1]
+            n, arity, i = frame
+            head = net.kind[n]
+            if toks and toks[0] == ")":
+                if i != arity:
+                    raise NetTextError(ports(head, arity))
+                toks.pop(0)
+                stack.pop()
+                continue
+            if not toks:
+                raise NetTextError(ports(head, arity))
+            i += 1
+            frame[2] = i
+            if i > arity:
+                raise NetTextError(ports(head, arity))
+            kid = begin(toks)
+            if isinstance(kid, str):
+                meet(kid, Port(n, i))
+            elif isinstance(kid, list):
+                net.wire(Port(n, i), Port(kid[0], 0))
+                stack.append([kid[0], kid[1], 0])
+            else:
+                net.wire(Port(n, i), kid)
+        return Port(root, 0)
 
     for equation in text.replace("\n", ";").split(";"):
         if not equation.strip():
@@ -118,29 +149,23 @@ def write(net, free):
     """The net as equations, read from its free ports in order of name, then from what is
     left. Trees hanging from a free port print as one term; any other joining of two ports
     is a wire named ``w1``, ``w2``, ... in the order met, skipping the free ports' names.
-    An empty net is ``""``. A port joined to nothing cannot be written, and raises
-    :class:`NetTextError`."""
+    An empty net is ``""``. A port joined to nothing, or a free port with no name in
+    ``free``, raises :class:`NetTextError`.
+
+    What is written reads back (:func:`read`) as the same net when the free ports' names
+    are names (a letter or ``_``, then letters, digits, ``_`` or ``.``) that are not agents'
+    names, and every parameter is a whole number or such a name. Other parameters (``-3``,
+    ``1.5``, IVM objects) are written as Python prints them and may not read back."""
     name_of = {p.node: name for name, p in free.items()}
     visited, wires, done_free = set(), {}, set()
 
-    def node(n):
-        visited.add(n)
-        kind = net.kind[n]
-        head = kind + (f" {net.param[n]}" if n in net.param else "")
-        arity = net.system.agents[kind].arity
-        if not arity:
-            return head
-        return head + " (" + " ".join(follow(Port(n, i)) for i in range(1, arity + 1)) + ")"
+    def free_name(q):
+        if q.node not in name_of:
+            raise NetTextError(f"a free port (node {q.node}) has no name in `free`")
+        done_free.add(q.node)
+        return name_of[q.node]
 
-    def follow(p):
-        q = net.link.get(p)
-        if q is None:
-            raise NetTextError(f"port {p.index} of node {p.node} ({net.kind[p.node]}) is joined to nothing")
-        if net.kind[q.node] == _FREE:
-            done_free.add(q.node)
-            return name_of[q.node]
-        if q.index == 0 and q.node not in visited:
-            return node(q.node)
+    def wire(p, q):
         key = frozenset((p, q))
         if key not in wires:
             k = len(wires) + 1
@@ -148,6 +173,51 @@ def write(net, free):
                 k += 1
             wires[key] = f"w{k}"
         return wires[key]
+
+    def node(top):
+        """The agent ``top`` and the tree hanging from its auxiliary ports, as a term. A
+        loop with a stack of its own, not recursion, so that long chains can be written."""
+        visited.add(top)
+        stack, written = [[top, 1, []]], None
+        while stack:
+            frame = stack[-1]
+            n, i, parts = frame
+            kind = net.kind[n]
+            arity = net.system.agents[kind].arity
+            if i > arity:
+                stack.pop()
+                head = kind + (f" {net.param[n]}" if n in net.param else "")
+                term = head + (" (" + " ".join(parts) + ")" if arity else "")
+                if stack:
+                    stack[-1][2].append(term)
+                    stack[-1][1] += 1
+                else:
+                    written = term
+                continue
+            p = Port(n, i)
+            q = net.link.get(p)
+            if q is None:
+                raise NetTextError(f"port {i} of node {n} ({kind}) is joined to nothing")
+            if net.kind[q.node] == _FREE:
+                parts.append(free_name(q))
+            elif q.index == 0 and q.node not in visited:
+                visited.add(q.node)
+                stack.append([q.node, 1, []])
+                continue
+            else:
+                parts.append(wire(p, q))
+            frame[1] += 1
+        return written
+
+    def follow(p):
+        q = net.link.get(p)
+        if q is None:
+            raise NetTextError(f"port {p.index} of node {p.node} ({net.kind[p.node]}) is joined to nothing")
+        if net.kind[q.node] == _FREE:
+            return free_name(q)
+        if q.index == 0 and q.node not in visited:
+            return node(q.node)
+        return wire(p, q)
 
     lines = []
     for name in sorted(free):
