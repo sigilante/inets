@@ -516,18 +516,22 @@ class Net:
                 captions[-1] += " (and on)"
         return _HTML(_row(pictures, captions))
 
-    def reduce(self, order="stack", limit=10 ** 6):
-        """Reduces the net (all of it, or ``limit`` interactions) and says what it cost."""
-        r = self.net.reduce(order, max_interactions=limit)
+    def reduce(self, order="stack", limit=10 ** 6, seed=0):
+        """Reduces the net (all of it, or ``limit`` interactions) and says what this call
+        cost, and how many interactions the net has had in all. ``order`` is ``"stack"``
+        (newest alive pair first), ``"queue"`` (oldest first) or ``"random"`` (by ``seed``)."""
+        r = self.net.reduce(order, seed=seed, max_interactions=limit)
         counts = ", ".join(f"{k} {v}" for k, v in sorted(r.counts.items()))
-        print(f"{r.reason}: {r.interactions} interactions ({counts}); {r.active_left} alive pairs left")
+        print(f"{r.reason}: {r.interactions} interactions ({counts}); {r.active_left} alive pairs left;"
+              f" {self.net.interactions} in all")
         return self
 
     def reduce_by_need(self, port, limit=10 ** 6):
         """Reduces only what the free port ``port`` needs (a table with signs)."""
         r = self.net.reduce_by_need(self.free[port], max_interactions=limit)
         counts = ", ".join(f"{k} {v}" for k, v in sorted(r.counts.items()))
-        print(f"{r.reason}: {r.interactions} interactions ({counts}); {r.active_left} alive pairs left")
+        print(f"{r.reason}: {r.interactions} interactions ({counts}); {r.active_left} alive pairs left;"
+              f" {self.net.interactions} in all")
         return self
 
     def same(self, other):
