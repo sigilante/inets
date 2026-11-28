@@ -30,7 +30,10 @@ __all__ = ["read", "write", "same", "NetTextError"]
 
 
 def read(system, text):
-    """A net from equations: ``(net, {free port's name: port})``."""
+    """A net from equations: ``(net, {free port's name: port})``. ``y = x``, with each name
+    used nowhere else, is two free ports joined to each other. Text that is not a net raises
+    :class:`NetTextError` (or :class:`inets.TableError`, for words the table reader cannot
+    read)."""
     net = Net(system, Library())
     agents = system.agents
     seen, count, straight = {}, {}, []
@@ -67,14 +70,14 @@ def read(system, text):
             while toks and toks[0] != ")":
                 i += 1
                 if i > agent.arity:
-                    raise NetTextError(f"{head} has {agent.arity} auxiliary ports")
+                    raise NetTextError(f"{head} has {agent.arity} auxiliary port" + ("" if agent.arity == 1 else "s"))
                 kid = term(toks)
                 if isinstance(kid, str):
                     meet(kid, Port(n, i))
                 else:
                     net.wire(Port(n, i), kid)
             if not toks or i != agent.arity:
-                raise NetTextError(f"{head} has {agent.arity} auxiliary ports")
+                raise NetTextError(f"{head} has {agent.arity} auxiliary port" + ("" if agent.arity == 1 else "s"))
             toks.pop(0)
         return Port(n, 0)
 
@@ -100,6 +103,8 @@ def read(system, text):
     free = {}
     for a, b in straight:
         if a == b or a in count or b in count or sum(a in x or b in x for x in straight) > 1:
+            if a == b:
+                raise NetTextError(f"{a} = {a} joins a wire to itself")
             raise NetTextError(f"{a} = {b} joins two wires: write one name for both")
         free[a], free[b] = net.free(), net.free()
         net.wire(free[a], free[b])

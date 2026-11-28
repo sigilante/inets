@@ -254,7 +254,7 @@ branch, `print_char`, and the IO value's split and merge) and stops at any other
 `inets.text` reads a net written as equations between ports, as on the right-hand side of a
 rule, writes one back, and says whether two nets are the same up to the numbering of their
 nodes. `con (a b)` is an agent, standing for its principal port; a name used twice is a
-wire, and a name used once is a free port.
+wire, a name used once is a free port, and a name used more than twice is an error.
 
 ```python
 import inets
@@ -282,11 +282,15 @@ so values flow up.
 names = {port: name for name, port in free.items()}
 graph = draw.dot(net, names)           # Graphviz text
 svg = draw.svg(graph)                  # SVG, if Graphviz's `dot` is installed; else None
-old = draw.roughen(svg)                # the same, as a photocopied 1990 figure
+if svg is not None:
+    old = draw.roughen(svg)            # the same, as a photocopied 1990 figure
 ```
 
+For a table with signs `draw.dot` gives a `digraph` laid out by direction; otherwise it gives a
+`graph` hung from the net's results.
+
 `draw.dot` takes three options:
-- `top=[port, ...]` puts those free ports at the top;
+- `top=[port, ...]` puts those free ports at the top, in place of the results;
 - `arrows=False` leaves out the arrowheads;
 - `style="ports"` draws boxes with port numbers instead, as `Net.dot()` does.
 

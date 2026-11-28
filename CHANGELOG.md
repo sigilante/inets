@@ -16,15 +16,20 @@ Added:
   `draw.dot(net, names, top=, style=, arrows=)` gives Graphviz text, with `style="ports"`
   for `Net.dot`'s drawing; `draw.svg` runs Graphviz's `dot`; `draw.roughen` gives an SVG
   the look of a photocopied 1990 figure.
-- The kernel (inets-kernel 0.1.4) reads net cells with `inets.text` and draws them with
-  `inets.draw`, in Lafont's style by default. New commands are `%style lafont|ports`,
-  `%arrows on|off` and `%retro on|off`. A net cell may now join two free ports (`a = b`).
-  It needs inets 0.1.4.
+- The kernel's commands `%style lafont|ports`, `%arrows on|off` and `%retro on|off`.
 - `notebooks/lafont1990/`: *Interaction nets, live*, a notebook companion to Lafont's
   *Interaction Nets* (1990), for JupyterLite, with its helper `livenet.py` (nets written as
   equations, drawn as in Lafont's figures, reduced step by step, compared up to numbering). `livenet.py` imports
   `inets.text` and `inets.draw`, so it needs inets 0.1.4. The notebook is published as a
   JupyterLite page at https://sigilante.github.io/inets/.
+
+Changed, for users of the kernel (inets-kernel 0.1.4, which needs inets 0.1.4):
+
+- Net cells are drawn in Lafont's style by default; `%style ports` brings back the boxes
+  with port numbers.
+- Net cells are read by `inets.text`. A cell may now join two free ports (`a = b`), which
+  was refused before. `Session.build` raises `inets.NetTextError` for text that is not a
+  net, where it raised `CellError`; a cell still shows either as an error.
 
 Fixed:
 

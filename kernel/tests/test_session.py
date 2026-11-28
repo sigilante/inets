@@ -122,3 +122,27 @@ def test_commands_that_show_things():
     assert "commute" in texts(s.execute("%rules"))
     assert "0 problems" in texts(s.execute("%check"))
     assert "One term, K I" in texts(s.execute("%demo"))
+
+
+def test_style_arrows_and_retro_commands():
+    s = Session()
+    assert s.execute("%style ports")[0].data == "style: ports"
+    assert s.execute("%arrows off")[0].data == "arrows: off"
+    assert s.execute("%retro on")[0].data == "retro: on"
+    for bad, phrase in [("%style sketch", "%style lafont"), ("%arrows maybe", "%arrows on"),
+                        ("%retro yes", "%retro on")]:
+        out = s.execute(bad)
+        assert out[-1].kind == "error" and phrase in out[-1].data
+
+
+@pytest.mark.skipif(shutil.which("dot") is None, reason="Graphviz's dot is not installed")
+def test_pictures_follow_the_style():
+    s = Session()
+    lafont = [o for o in s.execute("con (a b) = dup (era era)") if o.kind == "svg"]
+    s.execute("%style ports")
+    ports = [o for o in s.execute("con (a b) = dup (era era)") if o.kind == "svg"]
+    s.execute("%retro on")
+    rough = [o for o in s.execute("con (a b) = dup (era era)") if o.kind == "svg"]
+    assert lafont and ports and rough
+    assert lafont[0].data != ports[0].data
+    assert 'filter="url(#retro)"' in rough[0].data

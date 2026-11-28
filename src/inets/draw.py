@@ -21,6 +21,7 @@ numbers, active pairs in red.
 installed, and :func:`roughen` gives an SVG the look of a photocopied 1990 figure.
 """
 
+import html
 import shutil
 import subprocess
 from collections import deque
@@ -31,9 +32,22 @@ __all__ = ["dot", "lafont_dot", "svg", "roughen"]
 
 
 def dot(net, names=None, top=None, style="lafont", arrows=True):
-    """The net as Graphviz text. ``names`` maps free ports to labels; ``top`` lists free
-    ports to draw at the top; ``arrows=False`` leaves out the arrowheads on principal ports
-    (Lafont style only); ``style`` is ``"lafont"`` or ``"ports"``."""
+    """The net as Graphviz text.
+
+    ``names`` maps free ports to labels (other ports in it are ignored). In Lafont's style
+    (``style="lafont"``, the default):
+
+    - if every agent in the net has signs, the text is a ``digraph`` laid out by direction,
+      outputs on top; the free ports in ``top`` go in the top row, by default the named free
+      ports joined to an output (the net's results);
+    - otherwise it is a ``graph`` hung from the free ports in ``top``, by default the named
+      free ports joined to an output, or else the first one named;
+    - ``arrows=False`` leaves out the arrowheads on principal ports.
+
+    ``style="ports"`` is :meth:`inets.Net.dot`'s drawing (a ``graph`` of boxes with port
+    numbers, active pairs in red); it uses ``names`` and ignores ``top`` and ``arrows``. A
+    port in ``top`` that is not a free port of the net raises ``ValueError``.
+    """
     if style == "lafont":
         return lafont_dot(net, names, top, arrows)
     if style == "ports":
@@ -52,6 +66,16 @@ RETRO = """<defs><filter id="retro" x="-5%" y="-5%" width="110%" height="110%">
 <feMorphology in="speckled" operator="dilate" radius="0.25" result="spread"/>
 <feComponentTransfer in="spread"><feFuncA type="discrete" tableValues="0 1 1 1"/></feComponentTransfer>
 </filter></defs>"""
+
+
+def _top_nodes(net, top):
+    nodes = []
+    for p in top:
+        p = Port(*p)
+        if net.kind.get(p.node) != _FREE:
+            raise ValueError(f"{p} is not a free port of this net")
+        nodes.append(p.node)
+    return nodes
 
 
 def _arity(net, n):
@@ -116,12 +140,12 @@ def _flow_dot(net, names, top, arrows):
             if label is None or label.startswith("_"):
                 out.append(f'  n{n} [label="", shape=none, width=0.01, height=0.01, margin=0];')
             else:
-                out.append(f'  n{n} [label=<<i>{label}</i>>, shape=plaintext, height=0.2, margin=0];')
+                out.append(f'  n{n} [label=<<i>{html.escape(label)}</i>>, shape=plaintext, height=0.2, margin=0];')
         else:
             text = kind + (f" {net.param[n]}" if n in net.param else "")
-            shape = ", shape=circle" if len(text) <= 2 else ""
+            shape = ", shape=circle" if len(text) <= 2 else ""  # S, 0, Z: circles, as Lafont drew them
             out.append(f'  n{n} [label="{text}"{shape}];')
-    tops = [Port(*p).node for p in top] if top is not None else \
+    tops = _top_nodes(net, top) if top is not None else \
         [n for n in names if sign(Port(n, 0)) == "-" and net.kind.get(n) == _FREE]
     if tops:
         out.append("  { rank=min; " + " ".join(f"n{n};" for n in tops) + " }")
@@ -197,7 +221,7 @@ def _hung_dot(net, names, top, arrows):
     carry an output, in a table with signs; else the first named. The rest of the net is laid
     out breadth first below them."""
     names = {Port(*p).node: label for p, label in (names or {}).items()}
-    tops = [Port(*p).node for p in top] if top is not None else (_outputs(net, names) or list(names)[:1])
+    tops = _top_nodes(net, top) if top is not None else (_outputs(net, names) or list(names)[:1])
     # Breadth first from the top ports together, then from whatever is left: a node's
     # depth is its rank, and each wire runs down from the node that reached it.
     order, depth = [], {}
@@ -233,10 +257,10 @@ def _hung_dot(net, names, top, arrows):
             if label is None or label.startswith("_"):  # a bare end, as in Lafont's figures
                 out.append(f'  n{n} [label="", shape=none, width=0.01, height=0.01, margin=0];')
             else:
-                out.append(f'  n{n} [label=<<i>{label}</i>>, shape=plaintext, height=0.2, margin=0];')
+                out.append(f'  n{n} [label=<<i>{html.escape(label)}</i>>, shape=plaintext, height=0.2, margin=0];')
         else:
             text = kind + (f" {net.param[n]}" if n in net.param else "")
-            shape = ", shape=circle" if len(text) <= 2 else ""
+            shape = ", shape=circle" if len(text) <= 2 else ""  # S, 0, Z: circles, as Lafont drew them
             out.append(f'  n{n} [label="{text}"{shape}];')
     rank = {n: i for i, n in enumerate(order)}
     below = lambda p, q: (depth[q.node], rank[q.node]) > (depth[p.node], rank[p.node])
@@ -287,7 +311,8 @@ def roughen(svg):
 
 
 def svg(dot):
-    """Graphviz text as SVG from a local ``dot``, or None."""
+    """Graphviz text as SVG, made by Graphviz's ``dot`` program; None if the program is not
+    installed, fails, or takes more than 30 seconds."""
     program = shutil.which("dot")
     if program is None:
         return None
