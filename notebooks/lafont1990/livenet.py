@@ -9,11 +9,13 @@ style of Lafont's figures, and watch it reduce step by step.
 
 A net is written as equations between ports, as on the right-hand side of a rule:
 ``Add (one z)`` is an agent and stands for its principal port, its auxiliary ports in
-brackets; a name used twice is a wire, a name used once is a free port.
+brackets; a name used twice is a wire, a name used once is a free port. A free port whose
+name begins with ``_`` is drawn as a bare end, without its name.
 
 Pictures: with Graphviz's ``dot`` installed, made here; without it (JupyterLite), drawn in
 the page by viz.js, which needs a network connection. ``retro(True)`` draws everything as a
-photocopied 1990 figure.
+photocopied 1990 figure, and ``arrows(False)`` leaves out the arrowheads that mark
+principal ports.
 
 The drawing and the net reader are copied from inets's notebook drawing and from
 inets-benchmarks (bench/nettext.py), until both move into inets itself.
@@ -33,6 +35,13 @@ from inets.system import tokens
 VIZ = "https://cdn.jsdelivr.net/npm/@viz-js/viz@3.31.0/+esm"
 DRAW_UP_TO = 80   # nodes: larger nets are described, not drawn
 _RETRO = [False]
+_ARROWS = [True]
+
+
+def arrows(on=True):
+    """Mark principal ports with arrowheads from now on, or not (as in Lafont's first
+    pictures, before principal ports are introduced)."""
+    _ARROWS[0] = bool(on)
 
 
 def retro(on=True):
@@ -101,7 +110,7 @@ def lafont_dot(net, names=None, top=None):
                     queue.append(q.node)
     out = [
         "graph net {",
-        '  graph [nodesep=0.25, ranksep=0.3, ordering=out, splines=true, bgcolor="transparent"];',
+        '  graph [nodesep=0.25, ranksep=0.3, ordering=out, splines=polyline, bgcolor="transparent"];',
         '  node [shape=ellipse, fontname="Helvetica", fontsize=14, margin="0.06,0.02",'
         ' width=0, height=0, penwidth=1.3];',
         '  edge [penwidth=1.3, arrowsize=0.8, dir=both, arrowhead=none, arrowtail=none];',
@@ -112,8 +121,8 @@ def lafont_dot(net, names=None, top=None):
         kind = net.kind[n]
         if kind == _FREE:
             label = names.get(n)
-            if label is None:
-                out.append(f'  n{n} [label="", shape=point, width=0.05];')
+            if label is None or label.startswith("_"):  # a bare end, as in Lafont's figures
+                out.append(f'  n{n} [label="", shape=none, width=0.01, height=0.01, margin=0];')
             else:
                 out.append(f'  n{n} [label=<<i>{label}</i>>, shape=plaintext, height=0.2, margin=0];')
         else:
@@ -151,7 +160,7 @@ def lafont_dot(net, names=None, top=None):
             for end, port, side in (("tail", tail, "s"), ("head", head, "n")):
                 if net.kind[port.node] == _FREE:
                     continue
-                if port.index == 0:
+                if port.index == 0 and _ARROWS[0]:
                     attrs.append(f"arrow{end}=inv")
                 attrs.append(f"{end}port={compass(port, side)}")
             if depth[head.node] <= depth[tail.node]:

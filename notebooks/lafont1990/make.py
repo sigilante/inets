@@ -115,6 +115,18 @@ with three ports, principal port first. Ignore the signs for now; section 2 expl
 """),
 table_cell("lists", "lists.rules"),
 md("""
+The three agents on their own, as the paper first draws them, before principal ports come
+in: every port free. A free port whose name begins with `_` is drawn as a bare end, and
+`L.arrows(False)` leaves out the arrowheads.
+"""),
+code("""
+L.arrows(False)
+agents = L.side_by_side(L.Net(lists, "_a = Cons (_b _c)"), L.Net(lists, "_a = Nil"),
+                        L.Net(lists, "Append (_b _c) = _a"), between="")
+L.arrows(True)
+agents
+"""),
+md("""
 A rule drawn as Lafont draws it: the alive pair on the left, what it becomes on the right.
 The free ports `v`, `w`, `x`, `u` are the same on both sides. The result `w` is on top; the
 inputs hang below.
