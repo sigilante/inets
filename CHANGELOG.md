@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- `notebooks/lafont1990/`: *Interaction nets, live*, a notebook companion to Lafont's
+  *Interaction Nets* (1990), for JupyterLite, with its helper `livenet.py` (nets written as
+  equations, drawn as in Lafont's figures, reduced step by step, compared up to numbering).
+
 - A test of `unfold` on a deep term compared 5,000-deep tuples with `==`, which
   recurses past Python 3.10's limit; it compares their prefix forms. The 0.1.3 source
   archive's tests show that one failure on Python 3.10; the code is not affected.

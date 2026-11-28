@@ -263,10 +263,13 @@ The pictures need Graphviz's `dot`.
 [`notebooks/lafont1990/`](https://github.com/sigilante/inets/tree/master/notebooks/lafont1990)
 holds [*Interaction nets, live*](https://github.com/sigilante/inets/blob/master/notebooks/lafont1990/interaction-nets.ipynb),
 a companion to Yves Lafont's paper *Interaction Nets* (POPL 1990) that follows it section
-by section. It runs on the ordinary Python kernel, not the one above, and is written for
-JupyterLite, where it runs in the browser with nothing to install. The paper's systems
-are drawn in the style of his figures and reduced step by step. Its helper module,
-`livenet.py`, sits beside it. Without Graphviz installed, it draws with viz.js in the page.
+by section. The paper's systems are drawn in the style of his figures and reduced step by
+step. It runs on the ordinary Python kernel, not the one above, and is meant for JupyterLite,
+which runs Python in the browser. It needs a network connection there: its first cell
+installs `inets` from PyPI, and without Graphviz the pictures are drawn in the page by
+viz.js, loaded from cdn.jsdelivr.net. Its helper module, `livenet.py`, must sit beside it.
+The pictures saved in the notebook are drawn by script, so GitHub's preview shows the text
+but not the figures.
 
 ## Tests
 

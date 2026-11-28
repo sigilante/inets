@@ -18,7 +18,10 @@ photocopied 1990 figure, and ``arrows(False)`` leaves out the arrowheads that ma
 principal ports.
 
 The net reader and the comparison of nets are copied from inets-benchmarks
-(bench/nettext.py), until they and the drawing move into inets itself.
+(bench/nettext.py), until they and the drawing move into inets itself. Like that copy, this
+module uses two of inets's internals, ``inets.system.tokens`` and ``inets.net._FREE``.
+``retro`` and ``arrows`` are switches for the whole module, not for one net. Nets of more
+than ``DRAW_UP_TO`` nodes, free ports included, are shown as text.
 """
 
 import html as _html
@@ -86,9 +89,9 @@ def _outputs(net, named):
 
 
 def lafont_dot(net, names=None, top=None):
-    """The net as Graphviz text, drawn as in Lafont's figures. In a table with signs every
-    port is placed by its direction (:func:`_flow_dot`); otherwise the net hangs from its
-    top free ports (:func:`_hung_dot`)."""
+    """The net as Graphviz text, drawn as in Lafont's figures. If every agent in the net has
+    signs, each port is placed by its direction (:func:`_flow_dot`); otherwise, and for a net
+    with no agents, the net hangs from its top free ports (:func:`_hung_dot`)."""
     agents = [k for k in net.kind.values() if k != _FREE]
     if agents and all(net.system.agents[k].signs is not None for k in agents):
         return _flow_dot(net, names, top)
@@ -100,8 +103,10 @@ def _flow_dot(net, names=None, top=None):
     edge, each in port order from left to right, so values flow up from the agent that makes
     them to the one that uses them. A free port takes the direction opposite to the port it
     is joined to: a free port joined to an output is one of the net's results, drawn above.
-    A wire that would run against the flow closes a cycle; it is drawn as a loop and does not
-    shape the layout. ``top`` puts the free ports it names in the top rank."""
+    A wire that would run against the flow closes a cycle; it is still drawn, but it does not
+    shape the layout. A wire joining two outputs or two inputs is not well typed; it is drawn
+    the same way. Two free ports joined to each other are ordered by node number, the first
+    drawn above. ``top`` puts the free ports it names in the top rank."""
     names = {Port(*p).node: label for p, label in (names or {}).items()}
 
     def sign(port):
@@ -150,6 +155,8 @@ def _flow_dot(net, names=None, top=None):
 
     def compass(port, edge):
         ports = side[port.node][edge]
+        if port.index not in ports:  # a wire between two outputs or two inputs
+            return edge
         return spread[edge].get(len(ports), [edge] * len(ports))[ports.index(port.index)]
 
     # Walk down from the results, input to output, ports in order. A wire that comes back to
@@ -202,7 +209,9 @@ def _flow_dot(net, names=None, top=None):
 
 
 def _hung_dot(net, names=None, top=None):
-    """The net as Graphviz text, drawn as in Lafont's figures."""
+    """The net hung from its top free ports: those in ``top``; else the named free ports that
+    carry an output, in a table with signs; else the first named. The rest of the net is laid
+    out breadth first below them."""
     names = {Port(*p).node: label for p, label in (names or {}).items()}
     tops = [Port(*p).node for p in top] if top is not None else (_outputs(net, names) or list(names)[:1])
     # Breadth first from the top ports together, then from whatever is left: a node's
@@ -626,7 +635,9 @@ class Net:
         return seen // 2
 
     def step(self, order="stack"):
-        """One interaction, if there is an alive pair; the rule's count name, or None."""
+        """Makes one interaction, if there is an alive pair, and returns the rule's count
+        name ("?" if the rule has none), or None if there was nothing to do. ``order`` as for
+        :meth:`reduce`; ``"random"`` always uses seed 0."""
         before = dict(self.net.counts)
         r = self.net.reduce(order, max_interactions=1)
         if not r.interactions:
@@ -634,7 +645,9 @@ class Net:
         return next((k for k, v in self.net.counts.items() if v != before.get(k, 0)), "?")
 
     def steps(self, limit=12, order="stack"):
-        """The net and each net it becomes, one interaction at a time, up to ``limit``."""
+        """Reduces the net, one interaction at a time, up to ``limit``, and returns a row of
+        pictures of it before and after each one. The net itself is reduced: call it again
+        and it carries on from where it stopped."""
         pictures, captions = [self._repr_html_()], ["start"]
         for i in range(limit):
             rule = self.step(order)
@@ -649,7 +662,8 @@ class Net:
 
     def reduce(self, order="stack", limit=10 ** 6, seed=0):
         """Reduces the net (all of it, or ``limit`` interactions) and says what this call
-        cost, and how many interactions the net has had in all. ``order`` is ``"stack"``
+        cost, and how many interactions the net has had in all. The net itself is reduced,
+        and returned, so a cell can end with ``n.reduce()`` to show it. ``order`` is ``"stack"``
         (newest alive pair first), ``"queue"`` (oldest first) or ``"random"`` (by ``seed``)."""
         r = self.net.reduce(order, seed=seed, max_interactions=limit)
         counts = ", ".join(f"{k} {v}" for k, v in sorted(r.counts.items()))
@@ -658,7 +672,8 @@ class Net:
         return self
 
     def reduce_by_need(self, port, limit=10 ** 6):
-        """Reduces only what the free port ``port`` needs (a table with signs)."""
+        """Reduces only what the free port named ``port`` needs (a table with signs), says
+        what it cost, and returns the net."""
         r = self.net.reduce_by_need(self.free[port], max_interactions=limit)
         counts = ", ".join(f"{k} {v}" for k, v in sorted(r.counts.items()))
         print(f"{r.reason}: {r.interactions} interactions ({counts}); {r.active_left} alive pairs left;"
