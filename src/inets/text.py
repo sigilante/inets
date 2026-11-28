@@ -29,6 +29,12 @@ from .system import tokens
 __all__ = ["read", "write", "same", "NetTextError"]
 
 
+def _excerpt(equation, most=80):
+    """An equation to quote in an error, cut short if it is long."""
+    equation = equation.strip()
+    return equation if len(equation) <= most else equation[:most] + " ..."
+
+
 def read(system, text):
     """A net from equations: ``(net, {free port's name: port})``. ``y = x``, with each name
     used nowhere else, is two free ports joined to each other. Text that is not a net raises
@@ -118,10 +124,10 @@ def read(system, text):
         toks = tokens(equation)
         a = term(toks)
         if not toks or toks.pop(0) != "=":
-            raise NetTextError("an equation is PORT = PORT: " + equation.strip())
+            raise NetTextError("an equation is PORT = PORT: " + _excerpt(equation))
         b = term(toks)
         if toks:
-            raise NetTextError("unexpected " + toks[0] + " in: " + equation.strip())
+            raise NetTextError("unexpected " + toks[0] + " in: " + _excerpt(equation))
         if isinstance(a, str) and isinstance(b, str):
             straight.append((a, b))  # two free ports joined to each other: checked below
             continue

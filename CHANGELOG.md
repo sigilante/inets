@@ -34,6 +34,9 @@ Changed, for users of the kernel (inets-kernel 0.1.4, which needs inets 0.1.4):
 - Net cells are read by `inets.text`. A cell may now join two free ports (`a = b`), which
   was refused before. `Session.build` raises `inets.NetTextError` for text that is not a
   net, where it raised `CellError`; a cell still shows either as an error.
+- Reading a net wires each nested agent to its parent before reading the agent's own ports,
+  so `Net.link` is filled in a different order, and `Net.dot` (`%style ports`) may list the
+  same net's edges in a different order and Graphviz lay it out a little differently.
 
 Fixed:
 
