@@ -25,7 +25,7 @@ cells = [
     md("""
 # Drawing interaction nets
 
-A test of drawing `inets` nets in a notebook. With Graphviz's `dot` installed, the pictures are
+A test of drawing `inets` nets in a notebook, in the style of Lafont's figures. With Graphviz's `dot` installed, the pictures are
 made locally; in JupyterLite, viz.js (Graphviz compiled to WebAssembly) draws them in the page.
 """),
     code("""
@@ -38,25 +38,49 @@ print(inets.__version__)
 """),
     code(helper),
     md("""
-## A constructor meets a duplicator
+## Lafont's unary arithmetic
 
-The example from the README, in the `combinators` table. The thick red wire is the active pair;
-the numbers at the ends of a wire are port numbers, 0 being the principal port.
+From *Interaction Nets* (Lafont, POPL 1990): numbers built from `0` and `S`, and an agent
+`Add` whose principal port takes its first argument. An arrowhead marks each principal port,
+so the two arrowheads tip to tip are an active pair.
 """),
     code("""
-net = inets.Net(inets.bundled("combinators"))
-a, b = net.free(), net.free()
-net.wire(net.make("con", a, b), net.make("dup", net.make("era"), net.make("era")))
-draw(net, {a: "a", b: "b"})
+arith = inets.System.parse(\"\"\"
+agent Add 2
+agent S 1
+agent 0 0
+rule Add (z y) >< S (x)
+  => z = S (t); x = Add (t y)
+rule Add (z y) >< 0
+  => z = y
+\"\"\")
+net = inets.Net(arith)
+z = net.free()
+two = net.make("S", net.make("S", net.make("0")))
+one = net.make("S", net.make("0"))
+net.wire(net.make("Add", z, one), two)
+draw(net, {z: "z"})
 """),
     code("""
 print(net.reduce())
-draw(net, {a: "a", b: "b"})
+draw(net, {z: "z"})
+"""),
+    md("""
+## The same, photocopied
+
+`retro=True` gives the look of a 1990 figure.
+"""),
+    code("""
+net = inets.Net(arith)
+z = net.free()
+net.wire(net.make("Add", z, net.make("S", net.make("0"))), net.make("S", net.make("0")))
+draw(net, {z: "z"}, retro=True)
 """),
     md("""
 ## S K K I, by need
 
-The same term the `inets run ski` command reads. It reduces to `I`.
+The `ski` table marks which ports are outputs, so the result goes on top on its own.
+`style="ports"` shows the same net with port numbers.
 """),
     code("""
 from inets import ski
@@ -65,6 +89,9 @@ net = inets.Net(inets.bundled("ski"))
 out = net.free()
 net.wire(ski.encode(net, ski.parse("```SKKI")), out)
 draw(net, {out: "result"})
+"""),
+    code("""
+draw(net, {out: "result"}, style="ports")
 """),
     code("""
 print(net.reduce_by_need(out))
