@@ -20,10 +20,13 @@ Added:
   `inets.draw`, in Lafont's style by default. New commands are `%style lafont|ports`,
   `%arrows on|off` and `%retro on|off`. A net cell may now join two free ports (`a = b`).
   It needs inets 0.1.4.
-
 - `notebooks/lafont1990/`: *Interaction nets, live*, a notebook companion to Lafont's
   *Interaction Nets* (1990), for JupyterLite, with its helper `livenet.py` (nets written as
-  equations, drawn as in Lafont's figures, reduced step by step, compared up to numbering).
+  equations, drawn as in Lafont's figures, reduced step by step, compared up to numbering). `livenet.py` imports
+  `inets.text` and `inets.draw`, so it needs inets 0.1.4. The notebook is published as a
+  JupyterLite page at https://sigilante.github.io/inets/.
+
+Fixed:
 
 - A test of `unfold` on a deep term compared 5,000-deep tuples with `==`, which
   recurses past Python 3.10's limit; it compares their prefix forms. The 0.1.3 source
