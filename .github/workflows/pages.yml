@@ -1,0 +1,60 @@
+# Builds the notebook in notebooks/lafont1990 into a JupyterLite site, which runs Python in
+# the browser, and publishes it on GitHub Pages. The site opens straight into the notebook.
+name: pages
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - "notebooks/lafont1990/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install JupyterLite
+        run: pip install jupyterlite-core==0.8.7 jupyterlite-pyodide-kernel==0.8.7 jupyter-server==2.21.1
+      - name: Build the site
+        run: |
+          mkdir content
+          cp notebooks/lafont1990/interaction-nets.ipynb notebooks/lafont1990/livenet.py content/
+          jupyter lite build --contents content --output-dir _site
+          # Open straight into the notebook.
+          cat > _site/index.html <<'EOF'
+          <!doctype html>
+          <meta charset="utf-8">
+          <title>Interaction nets, live</title>
+          <meta http-equiv="refresh" content="0; url=notebooks/index.html?path=interaction-nets.ipynb">
+          <a href="notebooks/index.html?path=interaction-nets.ipynb">Interaction nets, live</a>
+          EOF
+          test -f _site/notebooks/index.html
+          test -f _site/files/interaction-nets.ipynb
+          test -f _site/files/livenet.py
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
