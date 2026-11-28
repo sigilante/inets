@@ -34,13 +34,15 @@ jobs:
           mkdir content
           cp notebooks/lafont1990/interaction-nets.ipynb notebooks/lafont1990/livenet.py content/
           jupyter lite build --contents content --output-dir _site
-          # Open straight into the notebook.
-          cat > _site/index.html <<'EOF'
-          <!doctype html>
-          <meta charset="utf-8">
-          <title>Interaction nets, live</title>
-          <meta http-equiv="refresh" content="0; url=notebooks/index.html?path=interaction-nets.ipynb">
-          <a href="notebooks/index.html?path=interaction-nets.ipynb">Interaction nets, live</a>
+          # Open straight into the notebook. The top page keeps its jupyter-config-data,
+          # which every app reads; only its own redirect, to JupyterLab, is replaced.
+          python - <<'EOF'
+          from pathlib import Path
+          p = Path("_site/index.html")
+          s = p.read_text()
+          old = "await import('./config-utils.js');"
+          assert old in s
+          p.write_text(s.replace(old, "location.replace('./notebooks/index.html?path=interaction-nets.ipynb');"))
           EOF
           test -f _site/notebooks/index.html
           test -f _site/files/interaction-nets.ipynb
