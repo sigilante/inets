@@ -1,6 +1,25 @@
 # Changes
 
-## Unreleased
+## 0.1.4
+
+Added:
+
+- `inets.text`: nets written as equations between ports, as on the right-hand side of a
+  rule. `text.read(system, text)` builds a net and returns it with its named free ports;
+  `text.write(net, free)` writes one back; `text.same(...)` says whether two nets are the
+  same up to the numbering of their nodes, in time quadratic in the largest closed piece.
+  `y = x`, with each name used nowhere else, is two free ports joined to each other. Errors
+  are `inets.NetTextError`.
+- `inets.draw`: pictures of nets in the style of Lafont's figures (ellipses, an arrowhead on
+  each principal port, italic free ports, `_`-names as bare ends). With signs, outputs sit
+  on top and inputs below, and a wire that closes a cycle does not shape the layout.
+  `draw.dot(net, names, top=, style=, arrows=)` gives Graphviz text, with `style="ports"`
+  for `Net.dot`'s drawing; `draw.svg` runs Graphviz's `dot`; `draw.roughen` gives an SVG
+  the look of a photocopied 1990 figure.
+- The kernel (inets-kernel 0.1.4) reads net cells with `inets.text` and draws them with
+  `inets.draw`, in Lafont's style by default. New commands are `%style lafont|ports`,
+  `%arrows on|off` and `%retro on|off`. A net cell may now join two free ports (`a = b`).
+  It needs inets 0.1.4.
 
 - `notebooks/lafont1990/`: *Interaction nets, live*, a notebook companion to Lafont's
   *Interaction Nets* (1990), for JupyterLite, with its helper `livenet.py` (nets written as

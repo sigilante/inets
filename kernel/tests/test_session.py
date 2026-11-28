@@ -71,7 +71,7 @@ def test_a_table_that_cannot_be_read_changes_nothing():
 @pytest.mark.parametrize("cell,phrase", [
     ("con (a b) = con (a a)", "more than two ends"),
     ("con (a) = era", "2 auxiliary ports"),
-    ("a = b", "joins two wires"),
+    ("a = b; a = era", "joins two wires"),
     ("con (a b) era", "an equation is"),
     ("%nonsense", "no command"),
     ("%schedule sideways", "a schedule is one of"),

@@ -5,6 +5,9 @@ table, and reduces nets by it under a chosen schedule.
 
 `inets` is a reference and teaching tool.  It is small but slow and has no dependencies.
 
+**Try it in your browser:** [*Interaction nets, live*](https://sigilante.github.io/inets/),
+a companion to Lafont's 1990 paper that runs in JupyterLite, with nothing to install.
+
 ## Install
 
 The two packages, `inets` and `inets-kernel`, are on PyPI and need Python 3.10 or later.
@@ -246,11 +249,55 @@ branch, `print_char`, and the IO value's split and merge) and stops at any other
 
 `inets --help` lists the commands.
 
+## Nets as text, and pictures
+
+`inets.text` reads a net written as equations between ports, as on the right-hand side of a
+rule, writes one back, and says whether two nets are the same up to the numbering of their
+nodes. `con (a b)` is an agent, standing for its principal port; a name used twice is a
+wire, and a name used once is a free port.
+
+```python
+import inets
+from inets import draw, text
+
+system = inets.bundled("combinators")
+net, free = text.read(system, "con (a b) = dup (era era)")   # free: {name: port}
+net.reduce()
+text.write(net, free)                  # 'a = dup (era era); b = dup (era era)'
+other, free2 = text.read(system, "a = dup (era era); b = dup (era era)")
+text.same(net, free, other, free2)     # True
+```
+
+`inets.draw` draws a net as Lafont drew his figures:
+- each agent is an ellipse;
+- an arrowhead marks each principal port, so an active pair shows as two arrowheads
+  tip to tip;
+- free ports appear as their names in italics, or as bare ends for names beginning
+  with `_`.
+
+In a table with signs, outputs sit on an agent's top edge and inputs on its bottom edge,
+so values flow up.
+
+```python
+names = {port: name for name, port in free.items()}
+graph = draw.dot(net, names)           # Graphviz text
+svg = draw.svg(graph)                  # SVG, if Graphviz's `dot` is installed; else None
+old = draw.roughen(svg)                # the same, as a photocopied 1990 figure
+```
+
+`draw.dot` takes three options:
+- `top=[port, ...]` puts those free ports at the top;
+- `arrows=False` leaves out the arrowheads;
+- `style="ports"` draws boxes with port numbers instead, as `Net.dot()` does.
+
 ## In a notebook
 
 [`kernel/`](https://github.com/sigilante/inets/tree/master/kernel) is a second small package, `inets-kernel`: a Jupyter kernel in which a
 cell is a table, a net, or a command. A net is written as the right-hand side of a rule
-is, and is drawn before and after it is reduced, with the active pairs marked.
+is, and is drawn before and after it is reduced, with the active pairs marked. The pictures
+are in Lafont's style; `%style ports` gives boxes with port numbers instead,
+`%arrows off` leaves out the arrowheads, and `%retro on` makes every picture look like
+a photocopied 1990 figure.
 
 It is installed as above; `jupyter lab notebooks/` in a copy of the repository opens the
 notebooks.

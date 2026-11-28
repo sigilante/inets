@@ -29,7 +29,7 @@ This notebook uses the smallest interesting system, the *symmetric interaction c
         ("code", "%table"),
         ("md", """A cell that is not a table or a command is a **net**, written as the right-hand side of a rule is. `con (a b)` is a node and stands for its principal port. A name used twice is a wire; a name used once is a free port, a loose end.
 
-In the pictures, port 0 is the principal port, and an active pair is drawn thick and red.
+In the pictures, drawn as in Lafont's figures, an arrowhead marks each principal port, so an active pair shows as two arrowheads tip to tip (`%style ports` draws boxes with port numbers instead, port 0 being the principal port).
 
 ## Two of a kind annihilate"""),
         ("code", "con (a b) = con (c d)"),

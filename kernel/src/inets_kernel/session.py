@@ -13,8 +13,8 @@ table is then checked.
 
 ``con (a b)`` is a node and stands for its principal port. A name that is not an agent is a
 wire if it occurs twice and a free port if it occurs once. An agent with a parameter takes
-it after its name: ``atom 3``. Equations are separated by ``;`` or new lines. The net is
-drawn, reduced by the current schedule, and drawn again, with why it stopped and what it
+it after its name: ``atom 3``. Equations are separated by ``;`` or new lines (the format of
+:mod:`inets.text`). The net is drawn (:mod:`inets.draw`), reduced by the current schedule, and drawn again, with why it stopped and what it
 cost.
 
 **Commands**, one to a line, beginning ``%``:
@@ -27,6 +27,11 @@ cost.
     %schedule HOW     stack (default), queue, random, rounds, or `need PORT`: by need for
                       the free port named PORT (default out), in a table with signs
     %cap N            stop a run after N interactions (default 10000)
+    %style HOW        lafont (default): as in Lafont's figures, an arrowhead on each
+                      principal port, outputs on top in a table with signs; or ports:
+                      boxes with port numbers, active pairs in red
+    %arrows on|off    with lafont, mark principal ports with arrowheads (on by default)
+    %retro on|off     draw as a photocopied 1990 figure (off by default)
     %trace on|off     with `rounds`, draw the net after each round, up to twelve rounds
                       (off by default)
     %ski TERM [--rounds | --lazy]
@@ -38,13 +43,11 @@ from __future__ import annotations
 
 import contextlib
 import io
-import shutil
-import subprocess
 from dataclasses import dataclass
 
 import inets
 from inets import ski
-from inets.system import BUNDLED, tokens
+from inets.system import BUNDLED
 
 HELP = __doc__.split("**Commands**")[1].split("\n\n", 1)[1].rstrip('"\n ')
 SCHEDULES = ("stack", "queue", "random", "rounds", "need")
@@ -63,24 +66,13 @@ class CellError(Exception):
     """A cell that cannot be carried out."""
 
 
-def _svg(dot):
-    """Graphviz text as SVG, or None if there is no `dot` program."""
-    program = shutil.which("dot")
-    if not program:
-        return None
-    try:
-        r = subprocess.run([program, "-Tsvg"], input=dot, capture_output=True, text=True, timeout=30)
-    except (OSError, subprocess.TimeoutExpired):
-        return None
-    return r.stdout[r.stdout.index("<svg"):] if r.returncode == 0 and "<svg" in r.stdout else None
-
-
 class Session:
     def __init__(self):
         self.text = ""
         self.system = inets.System.parse("")
         self.schedule, self.wanted = "stack", "out"
         self.cap, self.trace = 10000, False
+        self.style, self.arrows, self.retro = "lafont", True, False
         self.use("combinators")
 
     def use(self, name):
@@ -149,6 +141,16 @@ class Session:
                 raise CellError("%trace on, or %trace off")
             self.trace = rest == "on"
             return [Output("text", f"trace: {rest}")]
+        if word == "style":
+            if rest not in ("lafont", "ports"):
+                raise CellError("%style lafont, or %style ports")
+            self.style = rest
+            return [Output("text", f"style: {rest}")]
+        if word in ("arrows", "retro"):
+            if rest not in ("on", "off"):
+                raise CellError(f"%{word} on, or %{word} off")
+            setattr(self, word, rest == "on")
+            return [Output("text", f"{word}: {rest}")]
         if word == "ski":
             return self.ski(rest)
         if word == "demo":
@@ -176,86 +178,18 @@ class Session:
     # --- a net ------------------------------------------------------------------------
 
     def build(self, text):
-        """A net from equations: ``(net, {free port's name: port})``."""
-        net = inets.Net(self.system, inets.Library())
-        agents = self.system.agents
-        seen, count = {}, {}
-
-        def meet(name, port):
-            count[name] = count.get(name, 0) + 1
-            if count[name] > 2:
-                raise CellError(f"the wire {name} has more than two ends")
-            if name in seen:
-                net.wire(seen.pop(name), port)
-            else:
-                seen[name] = port
-
-        def term(toks):
-            if not toks:
-                raise CellError("an equation is PORT = PORT, and one side is missing")
-            head = toks.pop(0)
-            if head in ("(", ")", "=", ";"):
-                raise CellError(f"expected a node or a wire, not {head}")
-            if head not in agents:
-                return head
-            agent = agents[head]
-            param = None
-            if agent.param:
-                if not toks:
-                    raise CellError(f"{head} takes a parameter")
-                word = toks.pop(0)
-                param = int(word) if word.isdigit() else word
-            n = net.add_node(head, param)
-            if agent.arity:
-                if not toks or toks.pop(0) != "(":
-                    raise CellError(f"{head} needs its {agent.arity} ports in brackets")
-                i = 0
-                while toks and toks[0] != ")":
-                    i += 1
-                    if i > agent.arity:
-                        raise CellError(f"{head} has {agent.arity} auxiliary ports")
-                    kid = term(toks)
-                    if isinstance(kid, str):
-                        meet(kid, inets.Port(n, i))
-                    else:
-                        net.wire(inets.Port(n, i), kid)
-                if not toks or i != agent.arity:
-                    raise CellError(f"{head} has {agent.arity} auxiliary ports")
-                toks.pop(0)
-            return inets.Port(n, 0)
-
-        for equation in text.replace("\n", ";").split(";"):
-            if not equation.strip():
-                continue
-            toks = tokens(equation)
-            a = term(toks)
-            if not toks or toks.pop(0) != "=":
-                raise CellError("an equation is PORT = PORT: " + equation.strip())
-            b = term(toks)
-            if toks:
-                raise CellError("unexpected " + toks[0] + " in: " + equation.strip())
-            if isinstance(a, str) and isinstance(b, str):
-                raise CellError(f"{a} = {b} joins two wires: write one name for both")
-            if isinstance(a, str):
-                meet(a, b)
-            elif isinstance(b, str):
-                meet(b, a)
-            else:
-                net.wire(a, b)
-        free = {}
-        for name, port in seen.items():
-            free[name] = net.free()
-            net.wire(free[name], port)
-        return net, free
+        """A net from equations (:mod:`inets.text`): ``(net, {free port's name: port})``."""
+        return inets.text.read(self.system, text)
 
     def picture(self, net, free, title):
         names = {port: name for name, port in free.items()}
         if len(net.kind) > DRAW_UP_TO:
             return [Output("text", f"{title}: {len(net.kind)} nodes (too many to draw)")]
-        svg = _svg(net.dot(names))
+        graph = inets.draw.dot(net, names, style=self.style, arrows=self.arrows)
+        svg = inets.draw.svg(graph)
         if svg is None:
-            return [Output("text", f"{title} (Graphviz's `dot` program is missing or did not draw it, so here is the Graphviz text):\n{net.dot(names)}")]
-        return [Output("text", title + ":"), Output("svg", svg)]
+            return [Output("text", f"{title} (Graphviz's `dot` program is missing or did not draw it, so here is the Graphviz text):\n{graph}")]
+        return [Output("text", title + ":"), Output("svg", inets.draw.roughen(svg) if self.retro else svg)]
 
     @staticmethod
     def says(result):

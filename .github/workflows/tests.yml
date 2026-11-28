@@ -25,7 +25,7 @@ jobs:
       - run: python -m pytest -q tests
       - run: python -m pytest -q kernel/tests
       - name: The doctests
-        run: python -c "import doctest, sys, inets, inets.ski, inets.ivm; sys.exit(any(doctest.testmod(m).failed for m in (inets, inets.ski, inets.ivm)))"
+        run: python -c "import doctest, sys, inets, inets.ski, inets.ivm, inets.text, inets.draw; sys.exit(any(doctest.testmod(m).failed for m in (inets, inets.ski, inets.ivm, inets.text, inets.draw)))"
 
   archive:
     runs-on: ubuntu-latest

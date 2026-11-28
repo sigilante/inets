@@ -20,3 +20,7 @@ class TermError(Error):
 class Stuck(Error):
     """A net that cannot go on: an active pair no rule applies to, or a value wanted
     that depends on a free port."""
+
+
+class NetTextError(Error):
+    """Text that is not a net: see :mod:`inets.text`."""
