@@ -42,7 +42,7 @@ RETRO = """<defs><filter id="retro" x="-5%" y="-5%" width="110%" height="110%">
 <feTurbulence type="fractalNoise" baseFrequency="1.6" numOctaves="1" seed="9" result="grain"/>
 <feColorMatrix in="grain" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -14 8.6" result="holes"/>
 <feComposite in="ragged" in2="holes" operator="in" result="speckled"/>
-<feMorphology in="speckled" operator="dilate" radius="0.45" result="spread"/>
+<feMorphology in="speckled" operator="dilate" radius="0.25" result="spread"/>
 <feComponentTransfer in="spread"><feFuncA type="discrete" tableValues="0 1 1 1"/></feComponentTransfer>
 </filter></defs>"""
 

@@ -40,25 +40,31 @@ print(inets.__version__)
     md("""
 ## Lafont's unary arithmetic
 
-From *Interaction Nets* (Lafont, POPL 1990): numbers built from `0` and `S`, and an agent
-`Add` whose principal port takes its first argument. An arrowhead marks each principal port,
-so the two arrowheads tip to tip are an active pair.
+The rules for `Add` from *Interaction Nets* (Lafont, POPL 1990, figure 8), with the paper's
+polarities as signs: `+` for an output, `-` for an input. `Add`'s principal port takes the
+first argument; its auxiliary ports are the second argument and the result. An arrowhead
+marks each principal port, so two arrowheads tip to tip are an active pair, and the signs
+put the result on top.
 """),
     code("""
 arith = inets.System.parse(\"\"\"
-agent Add 2
-agent S 1
-agent 0 0
-rule Add (z y) >< S (x)
-  => z = S (t); x = Add (t y)
-rule Add (z y) >< 0
+agent 0   +
+agent S   + -
+agent Add - - +
+# 0 )( Add [y, y]
+rule Add (y z) >< 0
   => z = y
+  count add
+# S [Add(y, t)] )( Add [y, S(t)]
+rule Add (y z) >< S (x)
+  => x = Add (y t); z = S (t)
+  count add
 \"\"\")
 net = inets.Net(arith)
 z = net.free()
 two = net.make("S", net.make("S", net.make("0")))
 one = net.make("S", net.make("0"))
-net.wire(net.make("Add", z, one), two)
+net.wire(net.make("Add", one, z), two)
 draw(net, {z: "z"})
 """),
     code("""
@@ -73,7 +79,7 @@ draw(net, {z: "z"})
     code("""
 net = inets.Net(arith)
 z = net.free()
-net.wire(net.make("Add", z, net.make("S", net.make("0"))), net.make("S", net.make("0")))
+net.wire(net.make("Add", net.make("S", net.make("0")), z), net.make("S", net.make("0")))
 draw(net, {z: "z"}, retro=True)
 """),
     md("""
