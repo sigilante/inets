@@ -467,8 +467,8 @@ class _HTML:
 class Net:
     """A net built from equations, shown as a picture when it is the value of a cell.
 
-    ``top`` names the free ports to draw at the top; by default, in a table with signs,
-    those that carry an output."""
+    ``top`` names the free ports to draw at the top. By default these are, in a table
+    with signs, those that carry an output, and otherwise the first one written."""
 
     def __init__(self, system, text, top=None):
         self.system, self.text = system, text
@@ -476,7 +476,13 @@ class Net:
         self.top = top
 
     def _names(self):
-        return {p: name for name, p in self.free.items()}
+        """Free ports and their names, in the order the names first occur in the text, so
+        that in a table without signs the net hangs from the first one written."""
+        first = {}
+        for i, t in enumerate(tokens(self.text.replace(";", " ").replace("=", " "))):
+            first.setdefault(t, i)
+        order = sorted(self.free, key=lambda name: first.get(name, len(first)))
+        return {self.free[name]: name for name in order}
 
     def _top(self):
         return None if self.top is None else [self.free[t] for t in self.top]

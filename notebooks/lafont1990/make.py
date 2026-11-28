@@ -209,9 +209,31 @@ print("all the same:", all(results[0].same(m) for m in results))
 md("""
 ### Maximum needs a helper
 
-Some functions cannot be written with one agent. The maximum of two numbers would have to
-look at both arguments at once, but an agent sees only what is on its principal port. So
-`Max` looks at its first argument, and if that is a successor it hands over to a second
+Some functions cannot be written with one agent. The obvious rules for the maximum of two
+numbers treat its arguments alike: the maximum of 0 and `y` is `y`, of `x` and 0 is `x`, and
+of two successors is the successor of the maximum of what they hold. Lafont draws these
+rules (p. 96) to show that they are not allowed. Each one needs `Max` to see what is on both
+of its lower ports, so the left-hand sides are not pairs of agents joined by principal ports,
+and the rules break binary interaction.
+
+They cannot be written in a table, but they can be drawn. Here `Max` is an agent with no
+rules and, as in his figure, no arrowheads:
+"""),
+code("""
+sym = L.table(\"\"\"
+agent Max 2
+agent S 1
+agent 0 0
+\"\"\")   # no rules: for drawing only
+L.arrows(False)
+wrong = [L.rule(sym, "z = Max (0 y)", "z = y"),
+         L.rule(sym, "z = Max (x 0)", "z = x"),
+         L.rule(sym, "z = Max (S (x) S (y))", "z = S (Max (x y))")]
+L.arrows(True)
+L.side_by_side(*wrong, between="&nbsp;&nbsp;&nbsp;")
+"""),
+md("""
+So `Max` looks at its first argument, and if that is a successor it hands over to a second
 agent, `Aux`, which looks at the other argument (figure 2). The program has to choose which
 argument to look at first. Lafont notes that this rules out functions like "parallel or",
 which must answer as soon as either argument does.
