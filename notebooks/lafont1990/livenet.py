@@ -108,6 +108,8 @@ def _flow_dot(net, names=None, top=None):
         kind = net.kind[port.node]
         if kind == _FREE:
             q = net.link.get(port)
+            if q is not None and net.kind[q.node] == _FREE:  # two free ports joined: y = x
+                return "-" if port.node < q.node else "+"
             return "-" if q is None or sign(q) == "+" else "+"
         return net.system.agents[kind].signs[port.index]
 
